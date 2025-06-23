@@ -1,0 +1,172 @@
+package github_api
+
+import (
+	"ActQABot/conf"
+	"ActQABot/internal/grpc_utils"
+	"ActQABot/pkg/github/gh_api"
+	"ActQABot/pkg/github/issues"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	actservice "github.com/D1-3105/ActService/api/gen/ActService"
+	"github.com/golang/glog"
+	"github.com/gorilla/schema"
+	"io"
+	"net/http"
+	"time"
+)
+
+func returnError(w http.ResponseWriter, err error) {
+	w.WriteHeader(http.StatusBadRequest)
+	_, _ = w.Write([]byte(fmt.Sprintf(`{"error": "%s!"}`, err.Error())))
+}
+
+func returnErrorEvent(w http.ResponseWriter, err error) {
+	_, _ = w.Write([]byte(fmt.Sprintf(`data: {"error": "%s!"}`, err.Error())))
+}
+
+func webhookHandler(w http.ResponseWriter, r *http.Request) {
+	eventType := r.Header.Get("X-GitHub-Event")
+	decoder := json.NewDecoder(r.Body)
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(r.Body)
+
+	switch eventType {
+	case "ping":
+		break
+	case "issue_comment":
+		var issue IssueCommentEvent
+		if err := decoder.Decode(&issue); err != nil {
+			returnError(w, err)
+			return
+		}
+		if err := issueHandler(&issue); err != nil {
+			returnError(w, err)
+			return
+		}
+
+		break
+	case "pull_request":
+		break
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(fmt.Sprintf(`{"event_type": "%s"}`, eventType) + "\n"))
+}
+
+func issueHandler(issueComment *IssueCommentEvent) error {
+	var resp *gh_api.BotResponse
+	if issueComment.Action == "created" {
+		issueCommand, err := issues.NewIssuePRCommand(issueComment.IssueComment, []string{})
+		if err != nil {
+			glog.Errorf("NewIssuePRCommand error: %v", err)
+			return err
+		}
+		resp, err = issueCommand.Exec()
+		if err != nil {
+			glog.Errorf("issueCommand.Exec error: %v", err)
+			return err
+		}
+	}
+	go func() {
+		err := gh_api.PostIssueCommentFunc(resp, conf.GithubEnvironment.Token)
+		if err != nil {
+			glog.Errorf("PostIssueCommentFunc error: %v", err)
+		}
+	}()
+	return nil
+}
+
+func logStreamer(w http.ResponseWriter, r *http.Request) {
+	var decoder = schema.NewDecoder()
+	var q LogStreamQuery
+	err := decoder.Decode(&q, r.URL.Query())
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		returnError(w, fmt.Errorf("streaming is not supported"))
+		return
+	}
+
+	host, ok := conf.Hosts.Hosts[q.Host]
+	if !ok {
+		returnError(w, fmt.Errorf("host not found"))
+		return
+	}
+	grpcConn, err := grpc_utils.NewGRPCConn(host)
+	if err != nil {
+		glog.Errorf("grpc_utils.NewGRPCConn error: %v; %v", err, q)
+		returnError(w, errors.New("this host is inaccessible! can't listen to his jobs"))
+		return
+	}
+	grpcClient := actservice.NewActServiceClient(grpcConn)
+	streamLogRequest := actservice.JobLogRequest{JobId: q.JobId, LastOffset: 0}
+	stream, err := grpcClient.JobLogStream(r.Context(), &streamLogRequest)
+	streamQ := make(chan *actservice.JobLogMessage)
+	streamErrChan := make(chan error)
+
+	streamContext, cancelStream := context.WithCancel(context.Background())
+	go func() {
+		defer close(streamQ)
+		defer close(streamErrChan)
+
+		defer cancelStream()
+		for {
+			msg, err := stream.Recv()
+			if err == io.EOF {
+				glog.Infof("stream %v: EOF", q)
+				return
+			} else if err != nil {
+				streamErrChan <- err
+			} else {
+				streamQ <- msg
+			}
+		}
+	}()
+
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case err = <-streamErrChan:
+			glog.Errorf("stream %v: %v", q, err)
+			returnErrorEvent(w, err)
+			return
+		case <-streamContext.Done():
+			glog.Infof("stream %v: context done", q)
+			return
+		case msg := <-streamQ:
+			if msg == nil {
+				break
+			}
+			jsonedData, err := json.Marshal(msg)
+			if err != nil {
+				glog.Errorf("json.Marshal error: %v; %v", err, q)
+				returnErrorEvent(w, errors.New("failed to unmarshal upstream message"))
+				return
+			}
+			if _, err = fmt.Fprintf(w, "data: %s\n", jsonedData); err != nil {
+				glog.Errorf("write error: %v; %v", err, q)
+				return
+			}
+		case <-r.Context().Done():
+			glog.Errorf("stream %v: client disconnected", q)
+			return
+		case <-ticker.C:
+			_, err := fmt.Fprintf(w, "event: %d\n", time.Now().UnixMilli())
+			if err != nil {
+				return
+			}
+			flusher.Flush()
+		case <-time.After(time.Minute * 10):
+			glog.Errorf("streaming timeout for %v", q)
+			return
+		}
+	}
+}

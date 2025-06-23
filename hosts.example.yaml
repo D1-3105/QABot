@@ -1,0 +1,4 @@
+hosts:
+  my-vm:
+    address: xxx:50051
+    max_concurrent_jobs: 1
