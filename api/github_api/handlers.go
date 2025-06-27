@@ -41,7 +41,9 @@ func returnErrorEvent(w http.ResponseWriter, err error) {
 func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	eventType := r.Header.Get("X-GitHub-Event")
 	decoderSchema := schema.NewDecoder()
-	var q WebhookQuery
+	q := WebhookQuery{
+		PostBack: true,
+	}
 	err := decoderSchema.Decode(&q, r.URL.Query())
 	if err != nil {
 		returnError(w, err)

@@ -29,7 +29,7 @@ func TestWebhookHandler_IssueCommentCreated_Help(t *testing.T) {
 	}
 	body, _ := json.Marshal(payload)
 
-	req := httptest.NewRequest("POST", "/github/events", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/github/events/", bytes.NewBuffer(body))
 	req.Header.Set("X-GitHub-Event", "issue_comment")
 	w := httptest.NewRecorder()
 
@@ -76,7 +76,7 @@ func TestWebhookHandler_IssueCommentCreated_StartJob(t *testing.T) {
 		},
 	}
 	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("POST", "/github/events", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/github/events/", bytes.NewBuffer(body))
 	req.Header.Set("X-GitHub-Event", "issue_comment")
 	w := httptest.NewRecorder()
 
