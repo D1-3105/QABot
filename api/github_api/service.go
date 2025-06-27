@@ -4,7 +4,7 @@ import "github.com/gorilla/mux"
 
 func Router() *mux.Router {
 	r := mux.NewRouter().StrictSlash(false)
-	r.HandleFunc("/github/events", webhookHandler).Methods("POST")
+	r.HandleFunc("/github/events/", webhookHandler).Methods("POST")
 	r.HandleFunc("/job/logs/", logStreamer).Methods("GET")
 	return r
 }

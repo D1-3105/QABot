@@ -14,7 +14,182 @@ const docTemplate = `{
     },
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
-    "paths": {}
+    "paths": {
+        "/github/events/": {
+            "post": {
+                "description": "GitHub Webhooks: issue_comment, ping etc.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "github"
+                ],
+                "summary": "GitHub webhook",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "GitHub Event Type (e.g. 'issue_comment')",
+                        "name": "X-GitHub-Event",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "If true, server will respond back to GitHub after processing",
+                        "name": "post_back",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Webhook payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_api.IssueCommentEvent"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/job/logs/": {
+            "get": {
+                "description": "Stream logs from a remote job using gRPC and send via SSE",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "logs"
+                ],
+                "summary": "Stream job logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "agent-01",
+                        "description": "Hostname defined in configuration",
+                        "name": "host",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "job-abc-123",
+                        "description": "Job ID whose logs will be streamed",
+                        "name": "job_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "data: ...",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "github_api.IssueCommentEvent": {
+            "description": "GitHub issue comment wrapper",
+            "type": "object",
+            "properties": {
+                "action": {
+                    "description": "\"created\", \"edited\", \"deleted\"",
+                    "type": "string"
+                },
+                "comment": {
+                    "type": "object",
+                    "properties": {
+                        "body": {
+                            "type": "string"
+                        },
+                        "user": {
+                            "type": "object",
+                            "properties": {
+                                "login": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "issue": {
+                    "type": "object",
+                    "properties": {
+                        "number": {
+                            "type": "integer"
+                        },
+                        "pull_request": {
+                            "description": "nil if not PR",
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                },
+                "repository": {
+                    "type": "object",
+                    "properties": {
+                        "full_name": {
+                            "description": "\"owner/repo\"",
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "owner": {
+                            "type": "object",
+                            "properties": {
+                                "login": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                },
+                "sender": {
+                    "type": "object",
+                    "properties": {
+                        "login": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it

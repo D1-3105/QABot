@@ -1,8 +1,123 @@
 basePath: /api/v1
+definitions:
+  github_api.IssueCommentEvent:
+    description: GitHub issue comment wrapper
+    properties:
+      action:
+        description: '"created", "edited", "deleted"'
+        type: string
+      comment:
+        properties:
+          body:
+            type: string
+          user:
+            properties:
+              login:
+                type: string
+            type: object
+        type: object
+      issue:
+        properties:
+          number:
+            type: integer
+          pull_request:
+            additionalProperties: true
+            description: nil if not PR
+            type: object
+        type: object
+      repository:
+        properties:
+          full_name:
+            description: '"owner/repo"'
+            type: string
+          name:
+            type: string
+          owner:
+            properties:
+              login:
+                type: string
+            type: object
+        type: object
+      sender:
+        properties:
+          login:
+            type: string
+        type: object
+    type: object
 info:
   contact: {}
   description: API for convenient CI/CD management
   title: BeepBoop bot
   version: "1.0"
-paths: {}
+paths:
+  /github/events/:
+    post:
+      consumes:
+      - application/json
+      description: 'GitHub Webhooks: issue_comment, ping etc.'
+      parameters:
+      - description: GitHub Event Type (e.g. 'issue_comment')
+        in: header
+        name: X-GitHub-Event
+        required: true
+        type: string
+      - description: If true, server will respond back to GitHub after processing
+        example: false
+        in: query
+        name: post_back
+        type: boolean
+      - description: Webhook payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/github_api.IssueCommentEvent'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: GitHub webhook
+      tags:
+      - github
+  /job/logs/:
+    get:
+      description: Stream logs from a remote job using gRPC and send via SSE
+      parameters:
+      - description: Hostname defined in configuration
+        example: agent-01
+        in: query
+        name: host
+        type: string
+      - description: Job ID whose logs will be streamed
+        example: job-abc-123
+        in: query
+        name: job_id
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: 'data: ...'
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Stream job logs
+      tags:
+      - logs
 swagger: "2.0"

@@ -2,10 +2,14 @@ package main
 
 import (
 	"ActQABot/api/github_api"
+	"ActQABot/api/static"
 	"ActQABot/conf"
+	_ "ActQABot/docs"
 	"ActQABot/pkg/hosts"
+	"flag"
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"net/http"
 	"strings"
 )
@@ -42,7 +46,7 @@ func enableCORS(router *mux.Router) {
 
 func main() {
 	var err error
-
+	flag.Parse()
 	//
 	conf.NewEnviron(&conf.GeneralEnvironments)
 	conf.Hosts, err = conf.NewHostsEnvironment(conf.GeneralEnvironments.HostConf)
@@ -56,6 +60,9 @@ func main() {
 	r := mux.NewRouter()
 	enableCORS(r)
 	mount(r, "/api/v1", github_api.Router())
+	mount(r, "/static", static.Router())
+	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
+
 	var serverEnv conf.ServerEnvironment
 	conf.NewEnviron(&serverEnv)
 	glog.Infof("Listening on %s", serverEnv.Address)

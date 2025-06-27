@@ -26,8 +26,27 @@ func returnErrorEvent(w http.ResponseWriter, err error) {
 	_, _ = w.Write([]byte(fmt.Sprintf(`data: {"error": "%s!"}`, err.Error())))
 }
 
+// webhookHandler handles incoming GitHub webhook events.
+// @Summary GitHub webhook
+// @Description GitHub Webhooks: issue_comment, ping etc.
+// @Tags github
+// @Accept json
+// @Produce json
+// @Param X-GitHub-Event header string true "GitHub Event Type (e.g. 'issue_comment')"
+// @Param WebhookQuery query github_api.WebhookQuery true "Query parameters"
+// @Param payload body github_api.IssueCommentEvent true "Webhook payload"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Router /github/events/ [post]
 func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	eventType := r.Header.Get("X-GitHub-Event")
+	decoderSchema := schema.NewDecoder()
+	var q WebhookQuery
+	err := decoderSchema.Decode(&q, r.URL.Query())
+	if err != nil {
+		returnError(w, err)
+		return
+	}
 	decoder := json.NewDecoder(r.Body)
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
@@ -42,7 +61,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 			returnError(w, err)
 			return
 		}
-		if err := issueHandler(&issue); err != nil {
+		if err := issueHandler(&issue, q.PostBack); err != nil {
 			returnError(w, err)
 			return
 		}
@@ -56,7 +75,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(fmt.Sprintf(`{"event_type": "%s"}`, eventType) + "\n"))
 }
 
-func issueHandler(issueComment *IssueCommentEvent) error {
+func issueHandler(issueComment *IssueCommentEvent, postBack bool) error {
 	var resp *gh_api.BotResponse
 	if issueComment.Action == "created" {
 		issueCommand, err := issues.NewIssuePRCommand(issueComment.IssueComment, []string{})
@@ -70,15 +89,30 @@ func issueHandler(issueComment *IssueCommentEvent) error {
 			return err
 		}
 	}
-	go func() {
-		err := gh_api.PostIssueCommentFunc(resp, conf.GithubEnvironment.Token)
-		if err != nil {
-			glog.Errorf("PostIssueCommentFunc error: %v", err)
+	if resp != nil {
+		if postBack {
+			go func() {
+				err := gh_api.PostIssueCommentFunc(resp, conf.GithubEnvironment.Token)
+				if err != nil {
+					glog.Errorf("PostIssueCommentFunc error: %v", err)
+				}
+			}()
+		} else {
+			glog.Infof("IssuePR response \n\n%s\n", resp.Text)
 		}
-	}()
+	}
 	return nil
 }
 
+// logStreamer streams logs over Server-Sent Events (SSE).
+// @Summary Stream job logs
+// @Description Stream logs from a remote job using gRPC and send via SSE
+// @Tags logs
+// @Produce text/event-stream
+// @Param LogStreamQuery query github_api.LogStreamQuery true "Query parameters"
+// @Success 200 {string} string "data: ..."
+// @Failure 400 {object} map[string]string
+// @Router /job/logs/ [get]
 func logStreamer(w http.ResponseWriter, r *http.Request) {
 	var decoder = schema.NewDecoder()
 	var q LogStreamQuery
