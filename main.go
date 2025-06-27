@@ -14,6 +14,8 @@ import (
 	"strings"
 )
 
+var serverEnv conf.ServerEnvironment
+
 // @title BeepBoop bot
 // @version 1.0
 // @description API for convenient CI/CD management
@@ -31,7 +33,7 @@ func mount(r *mux.Router, path string, handler http.Handler) {
 func enableCORS(router *mux.Router) {
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Origin", serverEnv.AllowOrigins)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
@@ -55,6 +57,7 @@ func main() {
 	}
 	hosts.HostAvbl = hosts.NewAvailability(conf.Hosts)
 	conf.NewEnviron(&conf.GithubEnvironment)
+	conf.NewEnviron(&serverEnv)
 
 	//server
 	r := mux.NewRouter()
@@ -63,8 +66,6 @@ func main() {
 	mount(r, "/static", static.Router())
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
-	var serverEnv conf.ServerEnvironment
-	conf.NewEnviron(&serverEnv)
 	glog.Infof("Listening on %s", serverEnv.Address)
 	err = http.ListenAndServe(serverEnv.Address, r)
 	if err != nil {

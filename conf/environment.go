@@ -26,8 +26,9 @@ type HostsEnvironment struct {
 //
 
 type ServerEnvironment struct {
-	Address   string `env:"SERVER_ADDRESS" envDefault:":8080"`
-	StreamDSN string `env:"STREAM_DSN" envDefault:"http://localhost:8000"`
+	Address      string `env:"SERVER_ADDRESS" envDefault:":8080"`
+	StreamDSN    string `env:"STREAM_DSN" envDefault:"http://localhost:8000"`
+	AllowOrigins string `env:"ALLOW_ORIGINS" envDefault:"*"`
 }
 
 type GeneralEnvironment struct {

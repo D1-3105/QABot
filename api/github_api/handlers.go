@@ -116,6 +116,13 @@ func issueHandler(issueComment *IssueCommentEvent, postBack bool) error {
 // @Failure 400 {object} map[string]string
 // @Router /job/logs/ [get]
 func logStreamer(w http.ResponseWriter, r *http.Request) {
+	// return option
+	if r.Method == http.MethodOptions {
+		glog.Info("Options OK")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	//
 	var decoder = schema.NewDecoder()
 	var q LogStreamQuery
 	err := decoder.Decode(&q, r.URL.Query())
@@ -165,15 +172,20 @@ func logStreamer(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}()
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
 
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
 		case err = <-streamErrChan:
-			glog.Errorf("stream %v: %v", q, err)
-			returnErrorEvent(w, err)
-			return
+			if err != nil {
+				glog.Errorf("stream %v: %v", q, err)
+				returnErrorEvent(w, err)
+				return
+			}
 		case <-streamContext.Done():
 			glog.Infof("stream %v: context done", q)
 			return
