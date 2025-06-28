@@ -18,4 +18,4 @@ COPY --from=GObuilder /bin/qabot /bin/qabot
 COPY --from=GObuilder /server/assets /assets
 COPY --from=JSbuilder /static /static
 
-ENTRYPOINT ["/bin/qabot --logtostderr=true"]
+ENTRYPOINT ["/bin/qabot", "--logtostderr=true"]
