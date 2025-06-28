@@ -75,6 +75,35 @@ const docTemplate = `{
                 }
             }
         },
+        "/help": {
+            "get": {
+                "description": "Returns md",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "command"
+                ],
+                "summary": "Help analog",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_api.HelpCommandResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/job/logs/": {
             "get": {
                 "description": "Stream logs from a remote job using gRPC and send via SSE",
@@ -122,6 +151,14 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "github_api.HelpCommandResponse": {
+            "type": "object",
+            "properties": {
+                "body": {
+                    "type": "string"
+                }
+            }
+        },
         "github_api.IssueCommentEvent": {
             "description": "GitHub issue comment wrapper",
             "type": "object",

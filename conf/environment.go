@@ -14,9 +14,10 @@ var Hosts *HostsEnvironment
 //
 
 type Host struct {
-	Address        string  `yaml:"address"`
-	MaxConcurrency int     `yaml:"max_concurrent_jobs"`
-	TlsCert        *string `yaml:"tls_cert"`
+	Address        string   `yaml:"address"`
+	MaxConcurrency int      `yaml:"max_concurrent_jobs"`
+	TlsCert        *string  `yaml:"tls_cert"`
+	CustomFlags    []string `yaml:"custom_flags"`
 }
 
 type HostsEnvironment struct {
@@ -26,9 +27,10 @@ type HostsEnvironment struct {
 //
 
 type ServerEnvironment struct {
-	Address      string `env:"SERVER_ADDRESS" envDefault:":8080"`
-	StreamDSN    string `env:"STREAM_DSN" envDefault:"http://localhost:8000"`
-	AllowOrigins string `env:"ALLOW_ORIGINS" envDefault:"*"`
+	Address        string `env:"SERVER_ADDRESS" envDefault:":8080"`
+	StreamDSN      string `env:"STREAM_DSN" envDefault:"http://localhost:8000"`
+	AllowOrigins   string `env:"ALLOW_ORIGINS" envDefault:"*"`
+	StaticFileRoot string `env:"STATIC_FILE_ROOT"`
 }
 
 type GeneralEnvironment struct {

@@ -218,3 +218,46 @@ func logStreamer(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+
+// helpCommand returns md content.
+// @Summary Help analog
+// @Description Returns md
+// @Tags command
+// @Produce application/json
+// @Success 200 {object} HelpCommandResponse
+// @Failure 400 {object} map[string]string
+// @Router /help [get]
+func helpCommand(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	issueComment := IssueCommentEvent{
+		issues.IssueComment{
+			Comment: struct {
+				Body string `json:"body"`
+				User struct {
+					Login string `json:"login"`
+				} `json:"user"`
+			}{Body: fmt.Sprintf("@ci_bot %s", issues.HelpCommand), User: struct {
+				Login string `json:"login"`
+			}{Login: "any"}},
+		},
+	}
+	command, err := issues.NewIssuePRCommand(issueComment.IssueComment, []string{})
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+	execed, err := command.Exec()
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+	result := HelpCommandResponse{
+		Body: execed.Text,
+	}
+	err = json.NewEncoder(w).Encode(result)
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+}

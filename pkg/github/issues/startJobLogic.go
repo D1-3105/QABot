@@ -34,6 +34,7 @@ func createJob(ctx context.Context, callArgs *startCallArgs, cmd *IssuePRCommand
 		RepoUrl:      fmt.Sprintf("https://github.com/%s.git", cmd.correspondingIssue.Repository.FullName),
 		CommitId:     callArgs.commitId,
 		WorkflowFile: &callArgs.workflowName,
+		ExtraFlags:   hostConf.CustomFlags,
 	}
 	actJobResponse, err := client.ScheduleActJob(ctx, job)
 	if err != nil {

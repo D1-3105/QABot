@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"net/http"
+	"path"
 	"strings"
 )
 
@@ -63,10 +64,14 @@ func main() {
 	r := mux.NewRouter()
 	enableCORS(r)
 	mount(r, "/api/v1", github_api.Router())
-	mount(r, "/static", static.Router())
+	mount(r, "/static/", static.Router(serverEnv.StaticFileRoot))
+	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, path.Join(serverEnv.StaticFileRoot, "index.html"))
+	})
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
 	glog.Infof("Listening on %s", serverEnv.Address)
+	glog.Infof("Static path %s", serverEnv.StaticFileRoot)
 	err = http.ListenAndServe(serverEnv.Address, r)
 	if err != nil {
 		glog.Error("Error starting server:", err)

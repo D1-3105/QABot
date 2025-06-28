@@ -23,3 +23,9 @@ type LogStreamQuery struct {
 	// Job ID whose logs will be streamed
 	JobId string `schema:"job_id" json:"job_id" example:"job-abc-123"`
 }
+
+// HelpCommandResponse md text
+// @Description
+type HelpCommandResponse struct {
+	Body string `json:"body"`
+}

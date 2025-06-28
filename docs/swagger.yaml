@@ -1,5 +1,10 @@
 basePath: /api/v1
 definitions:
+  github_api.HelpCommandResponse:
+    properties:
+      body:
+        type: string
+    type: object
   github_api.IssueCommentEvent:
     description: GitHub issue comment wrapper
     properties:
@@ -90,6 +95,25 @@ paths:
       summary: GitHub webhook
       tags:
       - github
+  /help:
+    get:
+      description: Returns md
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_api.HelpCommandResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Help analog
+      tags:
+      - command
   /job/logs/:
     get:
       description: Stream logs from a remote job using gRPC and send via SSE

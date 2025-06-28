@@ -3,7 +3,7 @@ CURRENT_APP_VERSION := $(shell git describe --tags --long --always)
 REGISTRY_USER := d13105
 REGISTRY_PASSWORD ?=
 
-DOCKER_IMAGE_NAME := ${REGISTRY_USER}/actor_orchestrator:${CURRENT_APP_VERSION}
+DOCKER_IMAGE_NAME := ${REGISTRY_USER}/Act-QABot:${CURRENT_APP_VERSION}
 
 swagger_http_rest_api:
 	swag init -g ./main.go -o ./docs
