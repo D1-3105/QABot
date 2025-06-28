@@ -1,4 +1,4 @@
-name: Build docker artifacts
+name: Build docker artifacts [latest]
 
 on:
   workflow_dispatch:
