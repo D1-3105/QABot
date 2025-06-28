@@ -2,7 +2,8 @@ FROM golang:1.24.4-bookworm AS GObuilder
 COPY . /server
 WORKDIR /server
 RUN go mod tidy
-RUN go build -o /bin/qabot main.go
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o /bin/qabot main.go
+RUN ls -lh /bin/qabot && file /bin/qabot && ldd /bin/qabot || true
 
 FROM node:22-alpine AS JSbuilder
 RUN corepack enable && corepack prepare yarn@stable --activate
