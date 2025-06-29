@@ -14,7 +14,7 @@ RUN yarn install
 RUN yarn build
 RUN mv dist /static
 
-FROM gcr.io/distroless/static:nonroot
+FROM debian:bookworm-slim
 WORKDIR /
 COPY --from=GObuilder /bin/qabot /bin/qabot
 COPY --from=GObuilder /server/assets /assets
