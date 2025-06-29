@@ -62,7 +62,7 @@ const JobLogsPage = () => {
             // fallback to raw content
         }
 
-        const isGroupHeader = /^\[CI\/test]\s*(⭐)/.test(content);
+        const isGroupHeader = /^\[.*]\s*(⭐)/.test(content);
 
         let level: 'info' | 'warning' | 'error' | 'success' = 'info';
         const lower = content.toLowerCase();
