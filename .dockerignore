@@ -1,2 +1,6 @@
 frontend/node_modules
 frontend/web-interface/node_modules
+.env
+/*.*.private-key.pem
+hosts.yaml
+hosts.example.yaml

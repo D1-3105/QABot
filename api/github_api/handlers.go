@@ -268,3 +268,43 @@ func helpCommand(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 }
+
+// cancelWorkflow cancels workflow
+// @Summary trigger workflow cancellation
+// @Tags CI/CD request
+// @Produce application/json
+// @Param CancelWorkflowQuery query github_api.CancelWorkflowQuery true "Query parameters"
+// @Success 204
+// @Failure 400 {object} map[string]string
+// @Router /job/cancel/ [patch]
+func cancelWorkflow(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodOptions {
+		glog.Infof("Options OK %s", r.URL)
+		w.WriteHeader(http.StatusOK)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	var q CancelWorkflowQuery
+	err := schema.NewDecoder().Decode(&q, r.URL.Query())
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+	hostConf, ok := conf.Hosts.Hosts[q.Host]
+	if !ok {
+		returnError(w, fmt.Errorf("host %s not found", q.Host))
+		return
+	}
+	jobCancel := actservice.CancelJob{JobId: q.JobId}
+	grpcConn, err := grpc_utils.NewGRPCConn(hostConf)
+	if err != nil {
+		glog.Errorf("grpc_utils.NewGRPCConn error: %v; %v", err, q)
+	}
+	client := actservice.NewActServiceClient(grpcConn)
+	job, err := client.CancelActJob(context.Background(), &jobCancel)
+	glog.Infof("Job q=%v cancelled: job=%v", q, job)
+	if err != nil {
+		returnError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -114,6 +114,33 @@ paths:
       summary: Help analog
       tags:
       - command
+  /job/cancel/:
+    patch:
+      parameters:
+      - description: Job executor
+        example: agent-01
+        in: query
+        name: host
+        type: string
+      - description: Job to cancel
+        example: job-abc-123
+        in: query
+        name: job_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: trigger workflow cancellation
+      tags:
+      - CI/CD request
   /job/logs/:
     get:
       description: Stream logs from a remote job using gRPC and send via SSE

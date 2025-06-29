@@ -1,6 +1,17 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import { RotateCcw, Download, Search, ChevronRight, ChevronDown, Terminal, Activity, AlertCircle, CheckCircle } from "lucide-react";
+import {
+    RotateCcw,
+    Download,
+    Search,
+    ChevronRight,
+    ChevronDown,
+    Terminal,
+    Activity,
+    AlertCircle,
+    CheckCircle,
+    XCircle
+} from "lucide-react";
 
 interface LogEntry {
     timestamp: number;
@@ -24,6 +35,7 @@ const JobLogsPage = () => {
     const jobId = searchParams.get("job_id");
 
     const [logs, setLogs] = useState<ParsedLogLine[]>([]);
+    const [canceled, setCanceled] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'error' | 'completed'>('connecting');
     const [errorMessage, setErrorMessage] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState<string>('');
@@ -65,7 +77,7 @@ const JobLogsPage = () => {
 
         let groupId = '';
         if (isGroupHeader) {
-            const match = content.match(/\[CI\/test]\s*⭐\s*Run\s+(.+?)\s*$/);
+            const match = content.match(/\[.*]\s*⭐\s*Run\s+(.+?)\s*$/);
             if (match) {
                 groupId = match[1].trim();
             }
@@ -274,6 +286,23 @@ const JobLogsPage = () => {
         }
     };
 
+
+
+    const cancelJob = async () => {
+        try {
+            const url = `/api/v1/job/cancel/?host=${host}&job_id=${jobId}`;
+            const res = await fetch(url, { method: 'PATCH' });
+
+            if (res.status === 204) {
+                setCanceled(true);
+            } else {
+                console.error('Cancel failed:', res);
+            }
+        } catch (err) {
+            console.error('Cancel error:', err);
+        }
+    };
+
     return (
         <div className="container">
             {/* Header */}
@@ -319,6 +348,11 @@ const JobLogsPage = () => {
                                 <RotateCcw className="icon" />
                                 Refresh
                             </button>
+
+                            <button onClick={cancelJob} className="cancel-button">
+                                <XCircle className="icon" />
+                                Cancel Job
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -334,6 +368,15 @@ const JobLogsPage = () => {
                             <h3 className="error-title">Connection Error</h3>
                             <p className="error-message">{errorMessage}</p>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {canceled && (
+                <div className="toast toast-success">
+                    <div className="toast-content">
+                        <span className="toast-icon">✅</span>
+                        <span className="toast-message">Job canceled successfully.</span>
                     </div>
                 </div>
             )}

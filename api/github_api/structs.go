@@ -29,3 +29,12 @@ type LogStreamQuery struct {
 type HelpCommandResponse struct {
 	Body string `json:"body"`
 }
+
+// CancelWorkflowQuery cancels workflow
+// @Description cancels workflow
+type CancelWorkflowQuery struct {
+	// Job executor
+	Host string `schema:"host" json:"host" example:"agent-01"`
+	// Job to cancel
+	JobId string `schema:"job_id" json:"job_id" example:"job-abc-123"`
+}

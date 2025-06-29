@@ -97,6 +97,47 @@
                 }
             }
         },
+        "/job/cancel/": {
+            "patch": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "CI/CD request"
+                ],
+                "summary": "trigger workflow cancellation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "agent-01",
+                        "description": "Job executor",
+                        "name": "host",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "job-abc-123",
+                        "description": "Job to cancel",
+                        "name": "job_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/job/logs/": {
             "get": {
                 "description": "Stream logs from a remote job using gRPC and send via SSE",

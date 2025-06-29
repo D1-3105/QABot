@@ -346,3 +346,28 @@
   justify-content: flex-start;
   text-align: left;
 }
+
+.cancel-button {
+  background-color: #f87171;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toast-success {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  background: #4ade80;
+  color: black;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  z-index: 1000;
+  animation: fadeIn 0.3s ease;
+}
+

@@ -7,5 +7,6 @@ func Router() *mux.Router {
 	r.HandleFunc("/github/events/", webhookHandler).Methods("POST")
 	r.HandleFunc("/job/logs/", logStreamer).Methods("GET", "OPTIONS")
 	r.HandleFunc("/help", helpCommand).Methods("GET", "OPTIONS")
+	r.HandleFunc("/job/cancel/", cancelWorkflow).Methods("PATCH", "OPTIONS")
 	return r
 }
