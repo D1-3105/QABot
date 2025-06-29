@@ -12,6 +12,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"github.com/D1-3105/ActService/api/gen/ActService"
+	"github.com/google/go-github/v60/github"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"os"
@@ -36,7 +37,14 @@ func setupTestEnv(t *testing.T) {
 	hosts.HostAvbl = hosts.NewAvailability(conf.Hosts)
 }
 
+func mockGithub() {
+	gh_api.Authorize = func(ghEnv conf.GithubAPIEnvironment, owner, repo string) (*github.InstallationToken, error) {
+		return &github.InstallationToken{Token: &testToken}, nil
+	}
+}
+
 func postIssueCommentFixture(t *testing.T) chan *gh_api.BotResponse {
+	mockGithub()
 	original := gh_api.PostIssueCommentFunc
 	call := make(chan *gh_api.BotResponse, 1)
 	gh_api.PostIssueCommentFunc = func(botComment *gh_api.BotResponse, token string) error {
