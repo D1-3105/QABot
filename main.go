@@ -65,9 +65,11 @@ func main() {
 	enableCORS(r)
 	mount(r, "/api/v1", github_api.Router())
 	mount(r, "/static/", static.Router(serverEnv.StaticFileRoot))
-	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	indexFileReturnHandler := func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, path.Join(serverEnv.StaticFileRoot, "index.html"))
-	})
+	}
+	r.HandleFunc("/", indexFileReturnHandler)
+	r.HandleFunc("/job/logs", indexFileReturnHandler)
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
 	glog.Infof("Listening on %s", serverEnv.Address)
