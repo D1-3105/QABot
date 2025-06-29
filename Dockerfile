@@ -15,6 +15,7 @@ RUN yarn build
 RUN mv dist /static
 
 FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates
 WORKDIR /
 COPY --from=GObuilder /bin/qabot /bin/qabot
 COPY --from=GObuilder /server/assets /assets

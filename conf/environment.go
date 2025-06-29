@@ -38,7 +38,8 @@ type GeneralEnvironment struct {
 }
 
 type GithubAPIEnvironment struct {
-	Token string `env:"GITHUB_TOKEN"`
+	AppID          string `env:"GITHUB_APP_ID"`
+	PrivateKeyPath string `env:"GITHUB_PRIVATE_KEY_PATH"`
 }
 
 //

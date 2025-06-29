@@ -6,10 +6,16 @@ import (
 	"ActQABot/pkg/github/gh_api"
 	"ActQABot/pkg/hosts"
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"github.com/D1-3105/ActService/api/gen/ActService"
+	"github.com/google/go-github/v60/github"
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"os"
 	"testing"
 	"time"
 )
@@ -28,11 +34,17 @@ func setupTestEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to init conf.Hosts: %v", err)
 	}
-	conf.NewEnviron(&conf.GithubEnvironment)
 	hosts.HostAvbl = hosts.NewAvailability(conf.Hosts)
 }
 
+func mockGithub() {
+	gh_api.Authorize = func(ghEnv conf.GithubAPIEnvironment, owner, repo string) (*github.InstallationToken, error) {
+		return &github.InstallationToken{Token: &testToken}, nil
+	}
+}
+
 func postIssueCommentFixture(t *testing.T) chan *gh_api.BotResponse {
+	mockGithub()
 	original := gh_api.PostIssueCommentFunc
 	call := make(chan *gh_api.BotResponse, 1)
 	gh_api.PostIssueCommentFunc = func(botComment *gh_api.BotResponse, token string) error {
@@ -87,4 +99,23 @@ func grpcConnFixture(t *testing.T) {
 	t.Cleanup(func() {
 		grpc_utils.NewGRPCConn = original
 	})
+}
+
+func generateRSAPrivateKeyPEM(t *testing.T, filePath string, bits int) {
+	t.Helper()
+
+	privateKey, err := rsa.GenerateKey(rand.Reader, bits)
+	if err != nil {
+		t.Fatalf("failed to generate RSA key: %v", err)
+	}
+
+	pemBytes := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	})
+
+	err = os.WriteFile(filePath, pemBytes, 0600)
+	if err != nil {
+		t.Fatalf("failed to write private key file: %v", err)
+	}
 }
