@@ -94,7 +94,14 @@ func issueHandler(issueComment *IssueCommentEvent, postBack bool) error {
 	if resp != nil {
 		if postBack {
 			go func() {
-				err := gh_api.PostIssueCommentFunc(resp, conf.GithubEnvironment.Token)
+				tok, err := gh_api.Authorize(
+					conf.GithubEnvironment, issueComment.Repository.Owner.Login, issueComment.Repository.Name,
+				)
+				if err != nil {
+					glog.Errorf("github Authorize: %v", err)
+					return
+				}
+				err = gh_api.PostIssueCommentFunc(resp, *tok.Token)
 				if err != nil {
 					glog.Errorf("PostIssueCommentFunc error: %v", err)
 				}
