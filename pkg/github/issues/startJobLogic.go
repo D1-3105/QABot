@@ -31,7 +31,7 @@ func createJob(ctx context.Context, callArgs *startCallArgs, cmd *IssuePRCommand
 	}
 	client := actservice.NewActServiceClient(grpcConn)
 	job := &actservice.Job{
-		RepoUrl:      fmt.Sprintf("https://github.com/%s.git", cmd.correspondingIssue.Repository.FullName),
+		RepoUrl:      fmt.Sprintf("git@github.com:%s.git", cmd.correspondingIssue.Repository.FullName),
 		CommitId:     callArgs.commitId,
 		WorkflowFile: &callArgs.workflowName,
 		ExtraFlags:   hostConf.CustomFlags,
