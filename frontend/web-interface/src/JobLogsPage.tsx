@@ -164,6 +164,8 @@ const JobLogsPage = () => {
             if (match) {
                 groupId = match[1].trim();
             }
+        } else {
+            content = content.replace(/\[.*]\s/, '');
         }
 
         const isFiltered = (filters.hideVerbose && level === 'verbose') ||
