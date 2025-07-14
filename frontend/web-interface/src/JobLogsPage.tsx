@@ -271,41 +271,37 @@ const JobLogsPage = () => {
                     signal: abortController.signal,
                 });
 
-                if (!response.ok) {
+                if (!response.ok || !response.body) {
                     setConnectionStatus('error');
                     setErrorMessage(`HTTP ${response.status}: ${response.statusText}`);
                     return;
                 }
 
                 setConnectionStatus('connected');
-                const reader = response.body?.getReader();
-                const decoder = new TextDecoder();
 
-                if (!reader) {
-                    setConnectionStatus('error');
-                    setErrorMessage('Failed to read body!');
-                    return;
-                }
-
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
                 let buffer = '';
                 let currentGroupId = '';
 
                 while (true) {
-                    const { done, value } = await reader.read();
-
+                    const { value, done } = await reader.read();
                     if (done) {
                         setConnectionStatus('completed');
                         break;
                     }
 
                     buffer += decoder.decode(value, { stream: true });
-                    const lines = buffer.split('\n');
+
+                    const lines = buffer.split(/\r?\n/);
                     buffer = lines.pop() || '';
 
                     for (const line of lines) {
-                        if (line.trim() === '' || !line.startsWith('data: ')) continue;
+                        if (line.trim() === '') continue;
+                        if (!line.startsWith('data: ')) continue;
 
-                        const dataStr = line.substring(6);
+                        const dataStr = line.slice(6);
+
                         try {
                             const data: LogEntry = JSON.parse(dataStr);
                             if (data && typeof data === 'object' && 'line' in data) {
@@ -313,8 +309,8 @@ const JobLogsPage = () => {
 
                                 if (parsed.isGroupHeader) {
                                     currentGroupId = parsed.groupId;
+
                                     if (filters.autoCollapse && collapsedGroups.has(parsed.groupId)) {
-                                        // Auto-expand new groups
                                         setCollapsedGroups(prev => {
                                             const newSet = new Set(prev);
                                             newSet.delete(parsed.groupId);
@@ -333,7 +329,9 @@ const JobLogsPage = () => {
                     }
                 }
             } catch (error: unknown) {
-                if (error instanceof DOMException && error.name === 'AbortError') return;
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    return;
+                }
 
                 const message = error instanceof Error ? error.message : String(error);
                 setConnectionStatus('error');
