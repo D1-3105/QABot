@@ -417,7 +417,7 @@ const JobLogsPage = () => {
                             ) : (
                                 <div className="logs-list">
                                     {filteredLogs.map((log, index) => {
-                                        if (!log.isGroupHeader && log.groupId && collapsedGroups.has(log.groupId)) {
+                                        if (!log.isGroupHeader && log.groupId && collapsedGroups.has(log.groupId) && searchTerm === '') {
                                             return null;
                                         }
 
