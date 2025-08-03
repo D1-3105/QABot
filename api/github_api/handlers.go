@@ -173,8 +173,10 @@ func logStreamer(w http.ResponseWriter, r *http.Request) {
 				glog.Infof("stream %v: EOF", q)
 				return
 			} else if err != nil {
+				glog.Errorf("ERROR stream %v: %v", q, err)
 				streamErrChan <- err
 			} else {
+				glog.V(2).Infof("stream %v: recv: %v", q, msg)
 				streamQ <- msg
 			}
 		}
@@ -189,7 +191,7 @@ func logStreamer(w http.ResponseWriter, r *http.Request) {
 		select {
 		case err = <-streamErrChan:
 			if err != nil {
-				glog.Errorf("stream %v: %v", q, err)
+				glog.Errorf("ERROR <sse> stream %v: %v", q, err)
 				returnErrorEvent(w, err)
 				return
 			}
@@ -210,6 +212,7 @@ func logStreamer(w http.ResponseWriter, r *http.Request) {
 				glog.Errorf("write error: %v; %v", err, q)
 				return
 			}
+			flusher.Flush()
 		case <-r.Context().Done():
 			glog.Errorf("stream %v: client disconnected", q)
 			return
@@ -244,9 +247,11 @@ func helpCommand(w http.ResponseWriter, _ *http.Request) {
 				User struct {
 					Login string `json:"login"`
 				} `json:"user"`
-			}{Body: fmt.Sprintf("@ci_bot %s", issues.HelpCommand), User: struct {
-				Login string `json:"login"`
-			}{Login: "any"}},
+			}{
+				Body: fmt.Sprintf("@ci_bot %s", issues.HelpCommand), User: struct {
+					Login string `json:"login"`
+				}{Login: "any"},
+			},
 		},
 	}
 	command, err := issues.NewIssuePRCommand(issueComment.IssueComment, []string{})
