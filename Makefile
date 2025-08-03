@@ -9,6 +9,9 @@ swagger_http_rest_api:
 	swag init -g ./main.go -o ./docs
 
 
+build_frontend:
+	cd frontend/web-interface && yarn build
+
 docker_final:
 	docker build -t ${DOCKER_IMAGE_NAME} .
 
