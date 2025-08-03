@@ -217,7 +217,7 @@ func logStreamer(w http.ResponseWriter, r *http.Request) {
 			glog.Errorf("stream %v: client disconnected", q)
 			return
 		case <-ticker.C:
-			_, err := fmt.Fprintf(w, "event: %d\n", time.Now().UnixMilli())
+			_, err := fmt.Fprintf(w, ": ping %d\n\n", time.Now().UnixMilli())
 			if err != nil {
 				return
 			}
