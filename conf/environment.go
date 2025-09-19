@@ -48,6 +48,7 @@ type TemplatesEnvironment struct {
 	HelpCommandTemplate  string `env:"HELP_TEMPLATE" envDefault:"assets/help.tpl"`
 	StartCommandTemplate string `env:"START_TEMPLATE" envDefault:"assets/start.tpl"`
 	BaseCommandTemplate  string `env:"BASE_TEMPLATE" envDefault:"assets/base.tpl"`
+	ErrorTemplate        string `env:"ERROR_TEMPLATE" envDefault:"assets/error.tpl"`
 }
 
 func NewEnviron(environ any) {

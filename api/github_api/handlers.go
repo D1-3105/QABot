@@ -79,16 +79,18 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 
 func issueHandler(issueComment *IssueCommentEvent, postBack bool) error {
 	var resp *gh_api.BotResponse
+	var err error
 	if issueComment.Action == "created" {
 		issueCommand, err := issues.NewIssuePRCommand(issueComment.IssueComment, []string{})
 		if err != nil {
 			glog.Errorf("NewIssuePRCommand error: %v", err)
-			return err
-		}
-		resp, err = issueCommand.Exec()
-		if err != nil {
-			glog.Errorf("issueCommand.Exec error: %v", err)
-			return err
+			resp = issues.ErrorToBotResponse(err, &issueComment.IssueComment)
+		} else {
+			resp, err = issueCommand.Exec()
+			if err != nil {
+				glog.Errorf("issueCommand.Exec error: %v", err)
+				resp = issues.ErrorToBotResponse(err, &issueComment.IssueComment)
+			}
 		}
 	}
 	if resp != nil {
@@ -110,7 +112,7 @@ func issueHandler(issueComment *IssueCommentEvent, postBack bool) error {
 			glog.Infof("IssuePR response \n\n%s\n", resp.Text)
 		}
 	}
-	return nil
+	return err
 }
 
 // logStreamer streams logs over Server-Sent Events (SSE).
@@ -167,7 +169,17 @@ func logStreamer(w http.ResponseWriter, r *http.Request) {
 		defer close(streamErrChan)
 
 		defer cancelStream()
+		nilCnt := 0
 		for {
+			if stream == nil {
+				glog.Errorf("stream %v: nil", q)
+				nilCnt++
+				if nilCnt > 10 {
+					streamErrChan <- errors.New("stream is nil")
+					return
+				}
+				continue
+			}
 			msg, err := stream.Recv()
 			if err == io.EOF {
 				glog.Infof("stream %v: EOF", q)

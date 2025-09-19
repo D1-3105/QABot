@@ -127,3 +127,20 @@ func NewStartCmdContext(oldText []string, jobHost string, jobResponse *actservic
 func (c *StartCmdContext) GenText() (string, error) {
 	return GenTextFromTemplate(c.tmplFile, c)
 }
+
+type ErrorResultContext struct {
+	BaseCMD
+	ErrorText string
+}
+
+func NewErrorResultContext(errorText string) *ErrorResultContext {
+	tmpInit()
+	return &ErrorResultContext{
+		BaseCMD:   NewBaseCMD(make([]string, 0), templateEnv.ErrorTemplate),
+		ErrorText: errorText,
+	}
+}
+
+func (e *ErrorResultContext) GenText() (string, error) {
+	return GenTextFromTemplate(e.tmplFile, e)
+}
