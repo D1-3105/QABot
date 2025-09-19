@@ -44,3 +44,16 @@ func TestHelpCmdContext_GenText(t *testing.T) {
 		}
 	}
 }
+
+func TestErrorContext_GenText(t *testing.T) {
+	setupTestEnv(t)
+	ctx := templates.NewErrorResultContext("Error message")
+	out, err := ctx.GenText()
+	if err != nil {
+		t.Fatalf("GenText failed: %v", err)
+	}
+	t.Logf("Generated output:\n%s", out)
+	if !strings.Contains(out, "Error message") {
+		t.Errorf("output does not contain error message: %q", "Error message")
+	}
+}
