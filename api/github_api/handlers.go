@@ -82,10 +82,11 @@ func issueHandler(issueComment *IssueCommentEvent, postBack bool) error {
 	var err error
 	if issueComment.Action == "created" {
 		issueCommand, err := issues.NewIssuePRCommand(issueComment.IssueComment, []string{})
-		if err != nil {
+		if err != nil && !errors.Is(err, issues.NotMyCommentError) && !errors.Is(err, issues.CommentDataEmptyError) {
+			glog.Infof("NewIssuePRCommand: %v", err)
 			glog.Errorf("NewIssuePRCommand error: %v", err)
 			resp = issues.ErrorToBotResponse(err, &issueComment.IssueComment)
-		} else {
+		} else if err == nil {
 			resp, err = issueCommand.Exec()
 			if err != nil {
 				glog.Errorf("issueCommand.Exec error: %v", err)

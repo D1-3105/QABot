@@ -1,12 +1,17 @@
 package issues
 
 import (
+	"ActQABot/conf"
 	"ActQABot/pkg/github/gh_api"
 	"ActQABot/templates"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 )
+
+var NotMyCommentError = errors.New("not my comment")
+var CommentDataEmptyError = fmt.Errorf("comment data is empty")
 
 const (
 	HelpCommand string = "/help"
@@ -31,7 +36,10 @@ func NewIssuePRCommand(issue IssueComment, history []string) (*IssuePRCommand, e
 	commandData := strings.Split(commentData, " ")
 
 	if len(commandData) == 0 {
-		return nil, fmt.Errorf("comment data is empty")
+		return nil, CommentDataEmptyError
+	}
+	if !slices.Contains(conf.GeneralEnvironments.AllowedTags, commandData[0]) {
+		return nil, NotMyCommentError
 	}
 	if len(commandData) < 2 {
 		return nil, fmt.Errorf(

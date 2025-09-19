@@ -34,7 +34,8 @@ type ServerEnvironment struct {
 }
 
 type GeneralEnvironment struct {
-	HostConf string `env:"HOST_CONF"`
+	HostConf    string   `env:"HOST_CONF"`
+	AllowedTags []string `env:"ALLOWED_TAGS" envSeparator:"," envDefault:"@qa-r2d2,@bot"`
 }
 
 type GithubAPIEnvironment struct {
