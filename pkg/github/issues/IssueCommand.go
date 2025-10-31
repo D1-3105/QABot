@@ -31,7 +31,7 @@ type IssuePRCommand struct {
 }
 
 func NewIssuePRCommand(issue IssueComment, history []string) (*IssuePRCommand, error) {
-	commentHistory := strings.Split(issue.Comment.Body, templates.HistorySep)
+	commentHistory := strings.Split(strings.TrimSpace(issue.Comment.Body), templates.HistorySep)
 	commentData := commentHistory[len(commentHistory)-1]
 	commandData := strings.Split(commentData, " ")
 
