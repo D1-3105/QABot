@@ -109,9 +109,13 @@ type StartCmdContext struct {
 	JobResponse *actservice.JobResponse
 	MyDSN       string
 	JobHost     string
+	CustomFlags []string
 }
 
-func NewStartCmdContext(oldText []string, jobHost string, jobResponse *actservice.JobResponse) *StartCmdContext {
+func NewStartCmdContext(
+	oldText []string, jobHost string,
+	customFlags []string, jobResponse *actservice.JobResponse,
+) *StartCmdContext {
 	var serverEnv conf.ServerEnvironment
 	conf.NewEnviron(&serverEnv)
 	tmpInit()
@@ -121,6 +125,7 @@ func NewStartCmdContext(oldText []string, jobHost string, jobResponse *actservic
 		JobResponse: jobResponse,
 		MyDSN:       serverEnv.StreamDSN,
 		JobHost:     jobHost,
+		CustomFlags: customFlags,
 	}
 }
 

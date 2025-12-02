@@ -17,6 +17,7 @@ type startCallArgs struct {
 	hostName     string
 	commitId     string
 	workflowName string `default:".github/workflows/"`
+	extraFlag    []string
 }
 
 func createJob(ctx context.Context, callArgs *startCallArgs, cmd *IssuePRCommand) (*actservice.JobResponse, error) {
@@ -34,7 +35,7 @@ func createJob(ctx context.Context, callArgs *startCallArgs, cmd *IssuePRCommand
 		RepoUrl:      fmt.Sprintf("git@github.com:%s.git", cmd.correspondingIssue.Repository.FullName),
 		CommitId:     callArgs.commitId,
 		WorkflowFile: &callArgs.workflowName,
-		ExtraFlags:   hostConf.CustomFlags,
+		ExtraFlags:   append(hostConf.CustomFlags, callArgs.extraFlag...),
 	}
 	actJobResponse, err := client.ScheduleActJob(ctx, job)
 	if err != nil {
@@ -54,6 +55,9 @@ func (cmd *IssuePRCommand) startJobIssueCommentCommandExec() (*gh_api.BotRespons
 	if len(cmd.args) > 2 {
 		callArgs.workflowName = cmd.args[2]
 	}
+	if len(cmd.args) > 3 {
+		callArgs.extraFlag = cmd.args[2:]
+	}
 	jobContext, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	callControl, err := hosts.HostAvbl.WrapJobCtx(callArgs.hostName, jobContext)
@@ -68,6 +72,7 @@ func (cmd *IssuePRCommand) startJobIssueCommentCommandExec() (*gh_api.BotRespons
 	tmpContext := templates.NewStartCmdContext(
 		cmd.history,
 		callArgs.hostName,
+		callArgs.extraFlag,
 		jobResponse,
 	)
 	txt, err := tmpContext.GenText()
