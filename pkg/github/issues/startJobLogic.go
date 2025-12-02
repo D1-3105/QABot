@@ -11,6 +11,7 @@ import (
 	"fmt"
 	actservice "github.com/D1-3105/ActService/api/gen/ActService"
 	"github.com/golang/glog"
+	"strings"
 )
 
 type startCallArgs struct {
@@ -31,11 +32,32 @@ func createJob(ctx context.Context, callArgs *startCallArgs, cmd *IssuePRCommand
 		return nil, err
 	}
 	client := actservice.NewActServiceClient(grpcConn)
+	resultExtraFlags := append([]string{}, hostConf.CustomFlags...)
+	found := false
+	for i, f := range resultExtraFlags {
+		if strings.HasPrefix(f, "--container-options") {
+			if strings.Contains(f, "=") {
+				resultExtraFlags[i] = f + " " + strings.Join(callArgs.extraFlag, " ")
+			} else if i+1 < len(resultExtraFlags) {
+				resultExtraFlags[i+1] = resultExtraFlags[i+1] + " " + strings.Join(callArgs.extraFlag, " ")
+			}
+			found = true
+			break
+		}
+	}
+	if !found && len(callArgs.extraFlag) > 0 {
+		resultExtraFlags = append(
+			resultExtraFlags,
+			"--container-options",
+			strings.Join(callArgs.extraFlag, " "),
+		)
+	}
+
 	job := &actservice.Job{
 		RepoUrl:      fmt.Sprintf("git@github.com:%s.git", cmd.correspondingIssue.Repository.FullName),
 		CommitId:     callArgs.commitId,
 		WorkflowFile: &callArgs.workflowName,
-		ExtraFlags:   append(hostConf.CustomFlags, callArgs.extraFlag...),
+		ExtraFlags:   resultExtraFlags,
 	}
 	glog.Infof(
 		"Scheduling job of repo %s, commitId %s, workflowFile %s, extraFlags %v", job.RepoUrl, job.CommitId,
