@@ -37,6 +37,10 @@ func createJob(ctx context.Context, callArgs *startCallArgs, cmd *IssuePRCommand
 		WorkflowFile: &callArgs.workflowName,
 		ExtraFlags:   append(hostConf.CustomFlags, callArgs.extraFlag...),
 	}
+	glog.Infof(
+		"Scheduling job of repo %s, commitId %s, workflowFile %s, extraFlags %v", job.RepoUrl, job.CommitId,
+		*job.WorkflowFile, job.ExtraFlags,
+	)
 	actJobResponse, err := client.ScheduleActJob(ctx, job)
 	if err != nil {
 		glog.Errorf("unable to schedule job, %s", err.Error())
@@ -56,7 +60,7 @@ func (cmd *IssuePRCommand) startJobIssueCommentCommandExec() (*gh_api.BotRespons
 		callArgs.workflowName = cmd.args[2]
 	}
 	if len(cmd.args) > 3 {
-		callArgs.extraFlag = cmd.args[2:]
+		callArgs.extraFlag = cmd.args[3:]
 	}
 	jobContext, cancel := context.WithCancel(context.Background())
 	defer cancel()
