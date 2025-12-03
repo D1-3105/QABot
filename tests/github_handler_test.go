@@ -67,7 +67,10 @@ func TestWebhookHandler_IssueCommentCreated_StartJob(t *testing.T) {
 	payload := issueCommentPayload{
 		Action: "created",
 		IssueComment: mockComment{
-			Body: fmt.Sprintf("@bot %s my-vm .github/workflows/\n\n", issues.StartJob),
+			Body: fmt.Sprintf(
+				"@bot %s my-vm some-commit .github/workflows/whatever.yml -e TEST_CASE=data\n\n",
+				issues.StartJob,
+			),
 			User: struct {
 				Login string `json:"login"`
 			}{
