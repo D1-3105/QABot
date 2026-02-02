@@ -5,6 +5,7 @@ import (
 	"ActQABot/internal/grpc_utils"
 	"ActQABot/pkg/github/gh_api"
 	"ActQABot/pkg/hosts"
+	"ActQABot/pkg/worker_report"
 	"ActQABot/templates"
 	"context"
 	"errors"
@@ -71,7 +72,7 @@ func createJob(ctx context.Context, callArgs *startCallArgs, cmd *IssuePRCommand
 	return actJobResponse, nil
 }
 
-func (cmd *IssuePRCommand) startJobIssueCommentCommandExec() (*gh_api.BotResponse, error) {
+func (cmd *IssuePRCommand) startJobIssueCommentCommandExec(commandMeta *worker_report.GithubIssueMeta) (*gh_api.BotResponse, error) {
 	var callArgs startCallArgs
 	if len(cmd.args) < 2 {
 		return nil, errors.New("args are empty")
@@ -94,6 +95,11 @@ func (cmd *IssuePRCommand) startJobIssueCommentCommandExec() (*gh_api.BotRespons
 	jobResponse, err := createJob(jobContext, &callArgs, cmd)
 	if err != nil {
 		return nil, err
+	}
+	if commandMeta != nil {
+		commandMeta.JobId = new(string)
+		*commandMeta.JobId = jobResponse.JobId
+		commandMeta.Host = callArgs.hostName
 	}
 	tmpContext := templates.NewStartCmdContext(
 		cmd.history,

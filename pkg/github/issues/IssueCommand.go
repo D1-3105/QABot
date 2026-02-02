@@ -3,6 +3,7 @@ package issues
 import (
 	"ActQABot/conf"
 	"ActQABot/pkg/github/gh_api"
+	"ActQABot/pkg/worker_report"
 	"ActQABot/templates"
 	"errors"
 	"fmt"
@@ -62,7 +63,7 @@ func (cmd *IssuePRCommand) CommandName() string {
 	return cmd.command
 }
 
-func (cmd *IssuePRCommand) Exec() (*gh_api.BotResponse, error) {
+func (cmd *IssuePRCommand) Exec(commandMeta *worker_report.GithubIssueMeta) (*gh_api.BotResponse, error) {
 	var err error = nil
 	var botResponse *gh_api.BotResponse
 
@@ -71,7 +72,7 @@ func (cmd *IssuePRCommand) Exec() (*gh_api.BotResponse, error) {
 		botResponse, err = cmd.helpIssueCommentCommandExec()
 		break
 	case StartJob:
-		botResponse, err = cmd.startJobIssueCommentCommandExec()
+		botResponse, err = cmd.startJobIssueCommentCommandExec(commandMeta)
 		break
 	default:
 		return nil, errors.New("invalid command")

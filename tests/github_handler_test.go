@@ -3,12 +3,16 @@ package tests
 import (
 	"ActQABot/api/github_api"
 	"ActQABot/pkg/github/issues"
+	"ActQABot/pkg/worker_report"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 	"time"
 )
@@ -62,6 +66,7 @@ func TestWebhookHandler_IssueCommentCreated_Help(t *testing.T) {
 
 func TestWebhookHandler_IssueCommentCreated_StartJob(t *testing.T) {
 	setupTestEnv(t)
+	mocked := mockGithubMetaEtcd(mocksForGithubMetaEtcd{})
 	commentPosted := postIssueCommentFixture(t)
 	grpcConnFixture(t)
 	payload := issueCommentPayload{
@@ -106,13 +111,44 @@ func TestWebhookHandler_IssueCommentCreated_StartJob(t *testing.T) {
 	select {
 	case botResp := <-commentPosted:
 		t.Logf("comment posted \n%s", botResp.Text)
+		searchPat, err := regexp.Compile("job_id=(.*)")
+		if err != nil {
+			panic(err)
+		}
+		searchRes := searchPat.FindStringSubmatch(botResp.Text)
+		jobId := searchRes[1]
+		if jobId == "" {
+			t.Fatal("job_id not found in comment")
+		}
+		require.Condition(
+			t,
+			func() bool {
+				ser, ok := mocked.jobs[jobId]
+				if !ok {
+					return false
+				}
+				var deser worker_report.GithubIssueMeta
+				err := json.Unmarshal(ser, &deser)
+				if err != nil {
+					panic(err)
+				}
+				t.Logf("deserialized: %s", spew.Sdump(deser))
+				return deser.Body == payload.IssueComment.Body &&
+					deser.Host == "my-vm" &&
+					deser.Sender == "test-user" &&
+					*deser.JobId == jobId &&
+					*deser.MyLeaseID == *mocked.lastLease
+			},
+		)
 	case <-time.After(time.Second * 2):
 		t.Fatal("comment posted timeout")
 	}
+
 }
 
 func TestWebhookHandler_IssueCommentCreated_StartJob_Error(t *testing.T) {
 	setupTestEnv(t)
+	mockGithubMetaEtcd(mocksForGithubMetaEtcd{}) // void
 	commentPosted := postIssueCommentFixture(t)
 	grpcConnFixture(t)
 	payload := issueCommentPayload{
@@ -161,6 +197,8 @@ func TestWebhookHandler_IssueCommentCreated_StartJob_Error(t *testing.T) {
 
 func TestWebhookHandler_IssueCommentCreated_StartJob_NoError(t *testing.T) {
 	setupTestEnv(t)
+	mockGithubMetaEtcd(mocksForGithubMetaEtcd{}) // void
+
 	commentPosted := postIssueCommentFixture(t)
 	grpcConnFixture(t)
 	payload := issueCommentPayload{
