@@ -7,6 +7,7 @@ import (
 	"go.etcd.io/etcd/api/v3/mvccpb"
 	"go.etcd.io/etcd/client/v3"
 	"math/big"
+	"time"
 )
 
 type EtcdGithubMetaMock struct {
@@ -128,6 +129,14 @@ func MockWorkerReportEtcd(
 		worker_report.JobReportInitWatchFunc = func(ctx context.Context) worker_report.WatchWorkerReport {
 			return workerReportMock.WorkerReportEventChannel
 		}
+	}
+	worker_report.JobMakeAckFunc = func(key string, modRev int64) func(ctx context.Context) error {
+		return nil
+	}
+	worker_report.JobMakeNackFunc = func(
+		key string, report *worker_report.JobReport, delay time.Duration, maxRetries int,
+	) func(ctx context.Context) error {
+		return nil
 	}
 	return workerReportMock
 }
