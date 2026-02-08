@@ -1,9 +1,9 @@
 package worker_api
 
+import "ActQABot/pkg/worker_report"
+
 type JobWorkerReport struct {
-	JobId      string `json:"job_id"`
-	ReportText string `json:"report_text"`
+	worker_report.JobReport
 }
 
-type JobReportStored struct {
-}
+type JobReportResponse struct{}

@@ -1,6 +1,7 @@
 package worker_report
 
 import (
+	"ActQABot/conf"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,8 @@ const GithubIssueMetaPrefix = "/github-issue-meta/"
 type GithubIssueMeta struct {
 	Sender            string            `json:"sender"`
 	Body              string            `json:"body"`
+	Owner             string            `json:"owner"`
+	Repository        string            `json:"repository"`
 	AnswerCommentBody *string           `json:"answer_comment_body"`
 	IssueId           int               `json:"issue_id"`
 	Host              string            `json:"host"`
@@ -56,5 +59,32 @@ func (g *GithubIssueMeta) Store(ctx context.Context, jobId string, retries int64
 		return errors.New("failed to store job meta")
 	}
 	glog.V(1).Infof("successfully stored job meta: %v", g)
+	return nil
+}
+
+func etcdRetrieveJobMeta(ctx context.Context, jobId string) (*GithubIssueMeta, error) {
+	resp, err := conf.EtcdStoreInstance.Client.Get(ctx, GithubIssueMetaPrefix+jobId, nil)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Kvs) == 0 {
+		return nil, nil
+	}
+	githubIssueMeta := &GithubIssueMeta{}
+	err = json.Unmarshal(resp.Kvs[0].Value, githubIssueMeta)
+	if err != nil {
+		return nil, err
+	}
+	return githubIssueMeta, nil
+}
+
+func etcdDeleteJobMeta(ctx context.Context, jobId string, leaseID *clientv3.LeaseID) error {
+	_, err := conf.EtcdStoreInstance.Client.Delete(ctx, GithubIssueMetaPrefix+jobId, nil)
+	if err != nil {
+		return err
+	}
+	if leaseID != nil {
+		GithubJobMetaLeaseRevokeFunc(ctx, *leaseID)
+	}
 	return nil
 }

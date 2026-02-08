@@ -77,7 +77,13 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 func issueHandler(issueComment *IssueCommentEvent, postBack bool) error {
 	var resp *gh_api.BotResponse
 	var err error
-	var githubIssueMeta worker_report.GithubIssueMeta
+	githubIssueMeta := worker_report.GithubIssueMeta{
+		IssueId:    issueComment.Issue.Number,
+		Body:       issueComment.Comment.Body,
+		Sender:     issueComment.Comment.User.Login,
+		Repository: issueComment.Repository.Name,
+		Owner:      issueComment.Repository.Owner.Login,
+	}
 	if issueComment.Action == "created" {
 		issueCommand, err := issues.NewIssuePRCommand(issueComment.IssueComment, []string{})
 		if err != nil && !errors.Is(err, issues.NotMyCommentError) && !errors.Is(err, issues.CommentDataEmptyError) {
@@ -85,10 +91,6 @@ func issueHandler(issueComment *IssueCommentEvent, postBack bool) error {
 			glog.Errorf("NewIssuePRCommand error: %v", err)
 			resp = issues.ErrorToBotResponse(err, &issueComment.IssueComment)
 		} else if err == nil {
-			githubIssueMeta.IssueId = issueComment.Issue.Number
-			githubIssueMeta.Body = issueComment.Comment.Body
-			githubIssueMeta.Sender = issueComment.Comment.User.Login
-
 			resp, err = issueCommand.Exec(&githubIssueMeta)
 			if githubIssueMeta.JobId != nil {
 				err = githubIssueMeta.Store(context.Background(), *githubIssueMeta.JobId, 5)

@@ -1,8 +1,14 @@
 {{define "base"}}
-
 {{- $ctx := . -}}
-{{- range .OldText }}
-<details><summary>History item...</summary>{{ . }}</details>{{ with $ctx.Sep }}{{ . }}{{ end }}
+
+{{ range .OldText }}
+<details><summary>History item...</summary>
+{{ range $line := splitLines . }}
+> {{ $line -}}
 {{- end }}
+</details>
+
+{{ end }}
+
 {{- template "content" $ctx -}}
 {{- end }}

@@ -1,11 +1,11 @@
 package worker_report
 
 import (
-	"ActQABot/conf"
 	"context"
 	"encoding/json"
 	"github.com/golang/glog"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"sync"
 	"time"
 )
 
@@ -13,15 +13,17 @@ type JobKeys string
 
 const JobReportChannel JobKeys = "/job-report-chan/"
 
-var JobReportInitWatchFunc = initWatch
-
-func initWatch(ctx context.Context) <-chan clientv3.WatchResponse {
-	return conf.EtcdStoreInstance.Client.Watch(ctx, string(JobReportChannel), clientv3.WithPrefix())
+type JobReport struct {
+	JobId         string `json:"job_id"`
+	JobReportText string `json:"report_text"`
 }
 
-type JobReport struct {
-	JobId         string
-	JobReportText string
+type JobReportEvent struct {
+	Report *JobReport
+	Ack    func(context.Context) error
+	Nack   func(context.Context) error
+
+	Finish sync.Once
 }
 
 func (j *JobReport) SendEvent(ctx context.Context) error {
@@ -29,39 +31,58 @@ func (j *JobReport) SendEvent(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	_, err = conf.EtcdStoreInstance.Client.Put(
-		ctx,
-		string(JobReportChannel)+j.JobId,
-		string(data),
-	)
+	err = JobReportSendEventFunc(ctx, string(JobReportChannel)+j.JobId, string(data))
 	return err
 }
 
-func SubscribeJobReports(ctx context.Context) (<-chan *JobReport, error) {
-	newRch := make(chan *JobReport)
+func SubscribeJobReports(ctx context.Context) (<-chan *JobReportEvent, error) {
+
+	out := make(chan *JobReportEvent)
 
 	go func() {
-		defer close(newRch)
+		defer close(out)
+
 		for {
-			rch := JobReportInitWatchFunc(ctx)
+			rch := JobReportInitWatchFunc(ctx).GetWatchResponseChannel(ctx)
 			for wresp := range rch {
 				if wresp.Canceled {
 					glog.Error("watch canceled, reconnecting:", wresp)
 					break
 				}
+
 				for _, ev := range wresp.Events {
+					if ev.Type != clientv3.EventTypePut {
+						continue
+					}
+
 					var jr JobReport
 					if err := json.Unmarshal(ev.Kv.Value, &jr); err != nil {
 						glog.Error("failed to unmarshal JobReport:", err)
 						continue
 					}
+
+					ack := JobMakeAckFunc(string(ev.Kv.Key), ev.Kv.ModRevision)
+					nack := JobMakeNackFunc(
+						string(ev.Kv.Key),
+						&jr,
+						10*time.Second,
+						5,
+					)
+
+					event := &JobReportEvent{
+						Report: &jr,
+						Ack:    ack,
+						Nack:   nack,
+					}
+
 					select {
-					case newRch <- &jr:
+					case out <- event:
 					case <-ctx.Done():
 						return
 					}
 				}
 			}
+
 			select {
 			case <-time.After(time.Second):
 			case <-ctx.Done():
@@ -69,5 +90,6 @@ func SubscribeJobReports(ctx context.Context) (<-chan *JobReport, error) {
 			}
 		}
 	}()
-	return newRch, nil
+
+	return out, nil
 }
