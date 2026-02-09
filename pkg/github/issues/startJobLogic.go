@@ -96,7 +96,7 @@ func (cmd *IssuePRCommand) startJobIssueCommentCommandExec(commandMeta *worker_r
 	}
 	go callControl()
 	var jobResponse *actservice.JobResponse
-	if conf.GeneralEnvironments.DryRunJobs {
+	if !conf.GeneralEnvironments.DryRunJobs {
 		jobResponse, err = createJob(jobContext, &callArgs, cmd)
 	} else {
 		jobResponse = &actservice.JobResponse{
