@@ -22,7 +22,7 @@ func Test_WorkerReportCreate(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to marshal newWorkerReport %v", err)
 	}
-	req := httptest.NewRequest("POST", "/worker/report/", bytes.NewBuffer(body))
+	req := httptest.NewRequest("POST", "/report/", bytes.NewBuffer(body))
 	req.Header.Set("X-GitHub-Event", "issue_comment")
 	w := httptest.NewRecorder()
 	router := worker_api.Router()
