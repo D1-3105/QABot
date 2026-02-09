@@ -1,10 +1,12 @@
 package github_api
 
 import (
+	"ActQABot/api/base_api"
 	"ActQABot/conf"
 	"ActQABot/internal/grpc_utils"
 	"ActQABot/pkg/github/gh_api"
 	"ActQABot/pkg/github/issues"
+	"ActQABot/pkg/worker_report"
 	"context"
 	"encoding/json"
 	"errors"
@@ -16,11 +18,6 @@ import (
 	"net/http"
 	"time"
 )
-
-func returnError(w http.ResponseWriter, err error) {
-	w.WriteHeader(http.StatusBadRequest)
-	_, _ = w.Write([]byte(fmt.Sprintf(`{"error": "%s!"}`, err.Error())))
-}
 
 func returnErrorEvent(w http.ResponseWriter, err error) {
 	_, _ = w.Write([]byte(fmt.Sprintf(`data: {"error": "%s!"}`, err.Error())))
@@ -46,7 +43,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err := decoderSchema.Decode(&q, r.URL.Query())
 	if err != nil {
-		returnError(w, err)
+		base_api.APIReturnError(w, err)
 		return
 	}
 	decoder := json.NewDecoder(r.Body)
@@ -60,11 +57,11 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	case "issue_comment":
 		var issue IssueCommentEvent
 		if err := decoder.Decode(&issue); err != nil {
-			returnError(w, err)
+			base_api.APIReturnError(w, err)
 			return
 		}
 		if err := issueHandler(&issue, q.PostBack); err != nil {
-			returnError(w, err)
+			base_api.APIReturnError(w, err)
 			return
 		}
 
@@ -80,6 +77,13 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 func issueHandler(issueComment *IssueCommentEvent, postBack bool) error {
 	var resp *gh_api.BotResponse
 	var err error
+	githubIssueMeta := worker_report.GithubIssueMeta{
+		IssueId:    issueComment.Issue.Number,
+		Body:       issueComment.Comment.Body,
+		Sender:     issueComment.Comment.User.Login,
+		Repository: issueComment.Repository.Name,
+		Owner:      issueComment.Repository.Owner.Login,
+	}
 	if issueComment.Action == "created" {
 		issueCommand, err := issues.NewIssuePRCommand(issueComment.IssueComment, []string{})
 		if err != nil && !errors.Is(err, issues.NotMyCommentError) && !errors.Is(err, issues.CommentDataEmptyError) {
@@ -87,7 +91,13 @@ func issueHandler(issueComment *IssueCommentEvent, postBack bool) error {
 			glog.Errorf("NewIssuePRCommand error: %v", err)
 			resp = issues.ErrorToBotResponse(err, &issueComment.IssueComment)
 		} else if err == nil {
-			resp, err = issueCommand.Exec()
+			resp, err = issueCommand.Exec(&githubIssueMeta)
+			if githubIssueMeta.JobId != nil {
+				err = githubIssueMeta.Store(context.Background(), *githubIssueMeta.JobId, 5)
+				if err != nil {
+					glog.Errorf("githubIssueMeta.Store error: %v", err)
+				}
+			}
 			if err != nil {
 				glog.Errorf("issueCommand.Exec error: %v", err)
 				resp = issues.ErrorToBotResponse(err, &issueComment.IssueComment)
@@ -107,6 +117,14 @@ func issueHandler(issueComment *IssueCommentEvent, postBack bool) error {
 				err = gh_api.PostIssueCommentFunc(resp, *tok.Token)
 				if err != nil {
 					glog.Errorf("PostIssueCommentFunc error: %v", err)
+				}
+				if githubIssueMeta.JobId != nil {
+					githubIssueMeta.AnswerCommentBody = new(string)
+					*githubIssueMeta.AnswerCommentBody = resp.Text
+					err = githubIssueMeta.Store(context.Background(), *githubIssueMeta.JobId, 5)
+					if err != nil {
+						glog.Errorf("githubIssueMeta.Store error: %v", err)
+					}
 				}
 			}()
 		} else {
@@ -137,25 +155,25 @@ func logStreamer(w http.ResponseWriter, r *http.Request) {
 	var q LogStreamQuery
 	err := decoder.Decode(&q, r.URL.Query())
 	if err != nil {
-		returnError(w, err)
+		base_api.APIReturnError(w, err)
 		return
 	}
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		returnError(w, fmt.Errorf("streaming is not supported"))
+		base_api.APIReturnError(w, fmt.Errorf("streaming is not supported"))
 		return
 	}
 
 	host, ok := conf.Hosts.Hosts[q.Host]
 	if !ok {
-		returnError(w, fmt.Errorf("host not found"))
+		base_api.APIReturnError(w, fmt.Errorf("host not found"))
 		return
 	}
 	grpcConn, err := grpc_utils.NewGRPCConn(host)
 	if err != nil {
 		glog.Errorf("grpc_utils.NewGRPCConn error: %v; %v", err, q)
-		returnError(w, errors.New("this host is inaccessible! can't listen to his jobs"))
+		base_api.APIReturnError(w, errors.New("this host is inaccessible! can't listen to his jobs"))
 		return
 	}
 	grpcClient := actservice.NewActServiceClient(grpcConn)
@@ -269,12 +287,12 @@ func helpCommand(w http.ResponseWriter, _ *http.Request) {
 	}
 	command, err := issues.NewIssuePRCommand(issueComment.IssueComment, []string{})
 	if err != nil {
-		returnError(w, err)
+		base_api.APIReturnError(w, err)
 		return
 	}
-	execed, err := command.Exec()
+	execed, err := command.Exec(nil)
 	if err != nil {
-		returnError(w, err)
+		base_api.APIReturnError(w, err)
 		return
 	}
 	result := HelpCommandResponse{
@@ -282,7 +300,7 @@ func helpCommand(w http.ResponseWriter, _ *http.Request) {
 	}
 	err = json.NewEncoder(w).Encode(result)
 	if err != nil {
-		returnError(w, err)
+		base_api.APIReturnError(w, err)
 		return
 	}
 }
@@ -304,12 +322,12 @@ func cancelWorkflow(w http.ResponseWriter, r *http.Request) {
 	var q CancelWorkflowQuery
 	err := schema.NewDecoder().Decode(&q, r.URL.Query())
 	if err != nil {
-		returnError(w, err)
+		base_api.APIReturnError(w, err)
 		return
 	}
 	hostConf, ok := conf.Hosts.Hosts[q.Host]
 	if !ok {
-		returnError(w, fmt.Errorf("host %s not found", q.Host))
+		base_api.APIReturnError(w, fmt.Errorf("host %s not found", q.Host))
 		return
 	}
 	jobCancel := actservice.CancelJob{JobId: q.JobId}
@@ -321,7 +339,7 @@ func cancelWorkflow(w http.ResponseWriter, r *http.Request) {
 	job, err := client.CancelActJob(context.Background(), &jobCancel)
 	glog.Infof("Job q=%v cancelled: job=%v", q, job)
 	if err != nil {
-		returnError(w, err)
+		base_api.APIReturnError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

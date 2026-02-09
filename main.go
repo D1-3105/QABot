@@ -3,9 +3,12 @@ package main
 import (
 	"ActQABot/api/github_api"
 	"ActQABot/api/static"
+	"ActQABot/api/worker_api"
 	"ActQABot/conf"
 	_ "ActQABot/docs"
 	"ActQABot/pkg/hosts"
+	"ActQABot/pkg/worker_report"
+	"context"
 	"flag"
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
@@ -32,19 +35,23 @@ func mount(r *mux.Router, path string, handler http.Handler) {
 }
 
 func enableCORS(router *mux.Router) {
-	router.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", serverEnv.AllowOrigins)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	router.Use(
+		func(next http.Handler) http.Handler {
+			return http.HandlerFunc(
+				func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Access-Control-Allow-Origin", serverEnv.AllowOrigins)
+					w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+					w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	})
+					if r.Method == "OPTIONS" {
+						w.WriteHeader(http.StatusOK)
+						return
+					}
+					next.ServeHTTP(w, r)
+				},
+			)
+		},
+	)
 }
 
 func main() {
@@ -59,10 +66,25 @@ func main() {
 	hosts.HostAvbl = hosts.NewAvailability(conf.Hosts)
 	conf.NewEnviron(&conf.GithubEnvironment)
 	conf.NewEnviron(&serverEnv)
+	_, err = conf.NewEtcdConfFromEnv()
+	if err != nil {
+		panic(err)
+	}
 
-	//server
+	// Worker Report consumer
+	jobReportConsumerCtx, cancelReportConsumer := context.WithCancel(context.Background())
+	defer cancelReportConsumer()
+
+	jobReportEventChannel, err := worker_report.SubscribeJobReports(jobReportConsumerCtx)
+	if err != nil {
+		panic(err)
+	}
+	go worker_report.JobReportsConsumer(jobReportConsumerCtx, jobReportEventChannel)
+
+	// server
 	r := mux.NewRouter()
 	enableCORS(r)
+	mount(r, "/api/v1/worker", worker_api.Router())
 	mount(r, "/api/v1", github_api.Router())
 	mount(r, "/static/", static.Router(serverEnv.StaticFileRoot))
 	indexFileReturnHandler := func(w http.ResponseWriter, r *http.Request) {

@@ -2,6 +2,7 @@ package tests
 
 import (
 	"ActQABot/api/github_api"
+	"ActQABot/tests/mocks"
 	"bufio"
 	"context"
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,7 @@ import (
 
 func TestLogStreamer(t *testing.T) {
 
-	grpcConnFixture(t)
+	mocks.GrpcConnFixture(t)
 	setupTestEnv(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/job/logs/?host=my-vm&job_id=abc", nil)

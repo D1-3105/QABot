@@ -9,9 +9,9 @@ import (
 	"net/http"
 )
 
-var PostIssueCommentFunc = PostIssueComment
+var PostIssueCommentFunc = postIssueComment
 
-func PostIssueComment(botComment *BotResponse, token string) error {
+func postIssueComment(botComment *BotResponse, token string) error {
 	url := fmt.Sprintf(
 		"https://api.github.com/repos/%s/%s/issues/%d/comments",
 		botComment.Owner,

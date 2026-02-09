@@ -35,6 +35,7 @@ type ServerEnvironment struct {
 
 type GeneralEnvironment struct {
 	HostConf    string   `env:"HOST_CONF"`
+	DryRunJobs  bool     `env:"DRY_RUN_JOBS" envDefault:"false"`
 	AllowedTags []string `env:"ALLOWED_TAGS" envSeparator:"," envDefault:"@qa-r2d2,@bot"`
 }
 
@@ -50,6 +51,7 @@ type TemplatesEnvironment struct {
 	StartCommandTemplate string `env:"START_TEMPLATE" envDefault:"assets/start.tpl"`
 	BaseCommandTemplate  string `env:"BASE_TEMPLATE" envDefault:"assets/base.tpl"`
 	ErrorTemplate        string `env:"ERROR_TEMPLATE" envDefault:"assets/error.tpl"`
+	WorkerReportTemplate string `env:"WORKER_REPORT" envDefault:"assets/workerReport.tpl"`
 }
 
 func NewEnviron(environ any) {

@@ -1,5 +1,10 @@
 basePath: /api/v1
 definitions:
+  base_api.APIError:
+    properties:
+      error:
+        type: string
+    type: object
   github_api.HelpCommandResponse:
     properties:
       body:
@@ -48,6 +53,17 @@ definitions:
           login:
             type: string
         type: object
+    type: object
+  worker_api.JobReportResponse:
+    type: object
+  worker_api.JobWorkerReport:
+    properties:
+      job_id:
+        type: string
+      report_text:
+        type: string
+      retried:
+        type: integer
     type: object
 info:
   contact: {}
@@ -171,4 +187,35 @@ paths:
       summary: Stream job logs
       tags:
       - logs
+  /worker/report/:
+    post:
+      consumes:
+      - application/json
+      description: Decodes worker report data, sends a business event, and returns
+        a success response.
+      parameters:
+      - description: Job Worker Report Data
+        in: body
+        name: report
+        required: true
+        schema:
+          $ref: '#/definitions/worker_api.JobWorkerReport'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Report successfully created
+          schema:
+            $ref: '#/definitions/worker_api.JobReportResponse'
+        "400":
+          description: Invalid JSON or validation error
+          schema:
+            $ref: '#/definitions/base_api.APIError'
+        "500":
+          description: Internal server error during event processing
+          schema:
+            $ref: '#/definitions/base_api.APIError'
+      summary: Create a worker report
+      tags:
+      - reports
 swagger: "2.0"

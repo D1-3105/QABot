@@ -57,3 +57,39 @@ func TestErrorContext_GenText(t *testing.T) {
 		t.Errorf("output does not contain error message: %q", "Error message")
 	}
 }
+
+func TestWorkerReport_GenText(t *testing.T) {
+	setupTestEnv(t)
+	useContext := templates.NewWorkerReportContext(
+		"@bot /wf_start myvm 23f0ef6ea449131defae72433a2b7600e5158e83 .github/workflows/bench-qwen_image.yaml",
+		`
+BeepBoop: new job started
+Log tracking url: https://my-uri/job/logs?host=myvm&job_id=25a33a0b-02c9-425f-a135-7a10216a861d
+
+Detected Docker Environment:
+
+ -e  TEST_CASE=...
+`,
+		`
+| Item      | Quantity | Price  |
+|-----------|---------|--------|
+| Apple     | 10      | $2.00  |
+| Banana    | 5       | $1.50  |
+| Orange    | 8       | $2.50  |
+`,
+	)
+	out, err := useContext.GenText()
+	if err != nil {
+		t.Fatalf("GenText failed: %v", err)
+	}
+	t.Logf("Generated output:\n%s", out)
+	if !strings.Contains(out, "@bot") {
+		t.Errorf("output does not contain Initial")
+	}
+	if !strings.Contains(out, "BeepBoop: new job started") {
+		t.Errorf("output does not contain Answer")
+	}
+	if !strings.Contains(out, "Orange") {
+		t.Errorf("output does not contain Report")
+	}
+}

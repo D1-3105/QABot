@@ -3,22 +3,27 @@ package tests
 import (
 	"ActQABot/api/github_api"
 	"ActQABot/pkg/github/issues"
+	"ActQABot/pkg/worker_report"
+	"ActQABot/tests/mocks"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/stretchr/testify/require"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 	"time"
 )
 
 func TestWebhookHandler_IssueCommentCreated_Help(t *testing.T) {
 	setupTestEnv(t)
-	commentPosted := postIssueCommentFixture(t)
-	payload := issueCommentPayload{
+	commentPosted := mocks.PostIssueCommentFixture(t)
+	payload := mocks.IssueCommentPayload{
 		Action: "created",
-		IssueComment: mockComment{
+		IssueComment: mocks.MockComment{
 			Body: fmt.Sprintf("@bot %s", issues.HelpCommand),
 			User: struct {
 				Login string `json:"login"`
@@ -62,11 +67,12 @@ func TestWebhookHandler_IssueCommentCreated_Help(t *testing.T) {
 
 func TestWebhookHandler_IssueCommentCreated_StartJob(t *testing.T) {
 	setupTestEnv(t)
-	commentPosted := postIssueCommentFixture(t)
-	grpcConnFixture(t)
-	payload := issueCommentPayload{
+	mocked := mocks.MockGithubMetaEtcd(mocks.MockForGithubMetaEtcd{})
+	commentPosted := mocks.PostIssueCommentFixture(t)
+	mocks.GrpcConnFixture(t)
+	payload := mocks.IssueCommentPayload{
 		Action: "created",
-		IssueComment: mockComment{
+		IssueComment: mocks.MockComment{
 			Body: fmt.Sprintf(
 				"@bot %s my-vm some-commit .github/workflows/whatever.yml -e TEST_CASE=data\n\n",
 				issues.StartJob,
@@ -106,18 +112,49 @@ func TestWebhookHandler_IssueCommentCreated_StartJob(t *testing.T) {
 	select {
 	case botResp := <-commentPosted:
 		t.Logf("comment posted \n%s", botResp.Text)
+		searchPat, err := regexp.Compile("job_id=(.*)")
+		if err != nil {
+			panic(err)
+		}
+		searchRes := searchPat.FindStringSubmatch(botResp.Text)
+		jobId := searchRes[1]
+		if jobId == "" {
+			t.Fatal("job_id not found in comment")
+		}
+		require.Condition(
+			t,
+			func() bool {
+				ser, ok := mocked.Jobs[jobId]
+				if !ok {
+					return false
+				}
+				var deser worker_report.GithubIssueMeta
+				err := json.Unmarshal(ser, &deser)
+				if err != nil {
+					panic(err)
+				}
+				t.Logf("deserialized: %s", spew.Sdump(deser))
+				return deser.Body == payload.IssueComment.Body &&
+					deser.Host == "my-vm" &&
+					deser.Sender == "test-user" &&
+					*deser.JobId == jobId &&
+					*deser.MyLeaseID == *mocked.LastLease
+			},
+		)
 	case <-time.After(time.Second * 2):
 		t.Fatal("comment posted timeout")
 	}
+
 }
 
 func TestWebhookHandler_IssueCommentCreated_StartJob_Error(t *testing.T) {
 	setupTestEnv(t)
-	commentPosted := postIssueCommentFixture(t)
-	grpcConnFixture(t)
-	payload := issueCommentPayload{
+	mocks.MockGithubMetaEtcd(mocks.MockForGithubMetaEtcd{}) // void
+	commentPosted := mocks.PostIssueCommentFixture(t)
+	mocks.GrpcConnFixture(t)
+	payload := mocks.IssueCommentPayload{
 		Action: "created",
-		IssueComment: mockComment{
+		IssueComment: mocks.MockComment{
 			Body: fmt.Sprintf("@bot %s my-vm-error .github/workflows/", issues.StartJob),
 			User: struct {
 				Login string `json:"login"`
@@ -161,11 +198,13 @@ func TestWebhookHandler_IssueCommentCreated_StartJob_Error(t *testing.T) {
 
 func TestWebhookHandler_IssueCommentCreated_StartJob_NoError(t *testing.T) {
 	setupTestEnv(t)
-	commentPosted := postIssueCommentFixture(t)
-	grpcConnFixture(t)
-	payload := issueCommentPayload{
+	mocks.MockGithubMetaEtcd(mocks.MockForGithubMetaEtcd{}) // void
+
+	commentPosted := mocks.PostIssueCommentFixture(t)
+	mocks.GrpcConnFixture(t)
+	payload := mocks.IssueCommentPayload{
 		Action: "created",
-		IssueComment: mockComment{
+		IssueComment: mocks.MockComment{
 			Body: fmt.Sprintf("@not-bot %s my-vm-error .github/workflows/", issues.StartJob),
 			User: struct {
 				Login string `json:"login"`
@@ -210,11 +249,11 @@ func TestWebhookHandler_IssueCommentCreated_StartJob_NoError(t *testing.T) {
 
 func TestWebhookHandler_IssueCommentCreated_Empty(t *testing.T) {
 	setupTestEnv(t)
-	commentPosted := postIssueCommentFixture(t)
-	grpcConnFixture(t)
-	payload := issueCommentPayload{
+	commentPosted := mocks.PostIssueCommentFixture(t)
+	mocks.GrpcConnFixture(t)
+	payload := mocks.IssueCommentPayload{
 		Action: "created",
-		IssueComment: mockComment{
+		IssueComment: mocks.MockComment{
 			Body: fmt.Sprint(""),
 			User: struct {
 				Login string `json:"login"`
