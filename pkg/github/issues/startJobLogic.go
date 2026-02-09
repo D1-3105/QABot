@@ -12,6 +12,7 @@ import (
 	"fmt"
 	actservice "github.com/D1-3105/ActService/api/gen/ActService"
 	"github.com/golang/glog"
+	"github.com/google/uuid"
 	"strings"
 )
 
@@ -74,6 +75,8 @@ func createJob(ctx context.Context, callArgs *startCallArgs, cmd *IssuePRCommand
 
 func (cmd *IssuePRCommand) startJobIssueCommentCommandExec(commandMeta *worker_report.GithubIssueMeta) (*gh_api.BotResponse, error) {
 	var callArgs startCallArgs
+	var err error
+
 	if len(cmd.args) < 2 {
 		return nil, errors.New("args are empty")
 	}
@@ -92,7 +95,14 @@ func (cmd *IssuePRCommand) startJobIssueCommentCommandExec(commandMeta *worker_r
 		return nil, err
 	}
 	go callControl()
-	jobResponse, err := createJob(jobContext, &callArgs, cmd)
+	var jobResponse *actservice.JobResponse
+	if conf.GeneralEnvironments.DryRunJobs {
+		jobResponse, err = createJob(jobContext, &callArgs, cmd)
+	} else {
+		jobResponse = &actservice.JobResponse{
+			JobId: uuid.NewString(),
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

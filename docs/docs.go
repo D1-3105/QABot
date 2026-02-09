@@ -189,9 +189,63 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/worker/report/": {
+            "post": {
+                "description": "Decodes worker report data, sends a business event, and returns a success response.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "reports"
+                ],
+                "summary": "Create a worker report",
+                "parameters": [
+                    {
+                        "description": "Job Worker Report Data",
+                        "name": "report",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/worker_api.JobWorkerReport"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Report successfully created",
+                        "schema": {
+                            "$ref": "#/definitions/worker_api.JobReportResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid JSON or validation error",
+                        "schema": {
+                            "$ref": "#/definitions/base_api.APIError"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error during event processing",
+                        "schema": {
+                            "$ref": "#/definitions/base_api.APIError"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
+        "base_api.APIError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
         "github_api.HelpCommandResponse": {
             "type": "object",
             "properties": {
@@ -264,6 +318,23 @@ const docTemplate = `{
                             "type": "string"
                         }
                     }
+                }
+            }
+        },
+        "worker_api.JobReportResponse": {
+            "type": "object"
+        },
+        "worker_api.JobWorkerReport": {
+            "type": "object",
+            "properties": {
+                "job_id": {
+                    "type": "string"
+                },
+                "report_text": {
+                    "type": "string"
+                },
+                "retried": {
+                    "type": "integer"
                 }
             }
         }

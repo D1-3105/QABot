@@ -1,6 +1,7 @@
 package worker_report
 
 import (
+	"ActQABot/internal/etcd_utils"
 	"context"
 	"encoding/json"
 	"github.com/golang/glog"
@@ -16,6 +17,7 @@ const JobReportChannel JobKeys = "/job-report-chan/"
 type JobReport struct {
 	JobId         string `json:"job_id"`
 	JobReportText string `json:"report_text"`
+	Retried       *int32 `json:"retried"`
 }
 
 type JobReportEvent struct {
@@ -35,15 +37,57 @@ func (j *JobReport) SendEvent(ctx context.Context) error {
 	return err
 }
 
+func etcdFetchJobReports(ctx context.Context) ([]*JobReport, int64, error) {
+	resp, err := etcd_utils.EtcdStoreInstance.Client.Get(ctx, string(JobReportChannel), clientv3.WithPrefix())
+	if err != nil {
+		return nil, 0, err
+	}
+	jobReports := make([]*JobReport, 0, len(resp.Kvs))
+	for _, v := range resp.Kvs {
+		var jr JobReport
+		err := json.Unmarshal(v.Value, &jr)
+		if err != nil {
+			glog.Errorf("failed to unmarshal job report: %v", err)
+			continue
+		}
+		jobReports = append(jobReports, &jr)
+	}
+	return jobReports, resp.Header.Revision, nil
+}
+
 func SubscribeJobReports(ctx context.Context) (<-chan *JobReportEvent, error) {
+
+	wrapJobReportIntoEvent := func(k string, v *JobReport, rev int64) *JobReportEvent {
+		ack := JobMakeAckFunc(k, rev)
+		nack := JobMakeNackFunc(k, v, 10)
+
+		event := &JobReportEvent{
+			Report: v,
+			Ack:    ack,
+			Nack:   nack,
+		}
+		return event
+	}
 
 	out := make(chan *JobReportEvent)
 
 	go func() {
+		glog.V(1).Info("SubscribeJobReports started...")
+		defer glog.V(1).Info("SubscribeJobReports finished...")
 		defer close(out)
 
+		oldJobReports, activeRev, err := JobReportFetchFunc(ctx)
+
+		if err != nil {
+			glog.Errorf("failed to fetch job reports: %v", err)
+		} else {
+			for _, oldJobReport := range oldJobReports {
+				ev := wrapJobReportIntoEvent(oldJobReport.JobId, oldJobReport, activeRev)
+				out <- ev
+			}
+		}
 		for {
-			rch := JobReportInitWatchFunc(ctx).GetWatchResponseChannel(ctx)
+			rch := JobReportInitWatchFunc(ctx, activeRev+1).GetWatchResponseChannel(ctx)
 			for wresp := range rch {
 				if wresp.Canceled {
 					glog.Error("watch canceled, reconnecting:", wresp)
@@ -52,6 +96,7 @@ func SubscribeJobReports(ctx context.Context) (<-chan *JobReportEvent, error) {
 
 				for _, ev := range wresp.Events {
 					if ev.Type != clientv3.EventTypePut {
+						glog.V(2).Infof("SubscribeJobReports - event watch response received for event %v", ev.Type)
 						continue
 					}
 
@@ -61,20 +106,7 @@ func SubscribeJobReports(ctx context.Context) (<-chan *JobReportEvent, error) {
 						continue
 					}
 
-					ack := JobMakeAckFunc(string(ev.Kv.Key), ev.Kv.ModRevision)
-					nack := JobMakeNackFunc(
-						string(ev.Kv.Key),
-						&jr,
-						10*time.Second,
-						5,
-					)
-
-					event := &JobReportEvent{
-						Report: &jr,
-						Ack:    ack,
-						Nack:   nack,
-					}
-
+					event := wrapJobReportIntoEvent(string(ev.Kv.Key), &jr, ev.Kv.ModRevision)
 					select {
 					case out <- event:
 					case <-ctx.Done():

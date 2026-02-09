@@ -35,6 +35,7 @@ type ServerEnvironment struct {
 
 type GeneralEnvironment struct {
 	HostConf    string   `env:"HOST_CONF"`
+	DryRunJobs  bool     `env:"DRY_RUN_JOBS" envDefault:"false"`
 	AllowedTags []string `env:"ALLOWED_TAGS" envSeparator:"," envDefault:"@qa-r2d2,@bot"`
 }
 

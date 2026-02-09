@@ -1,7 +1,7 @@
 package worker_report
 
 import (
-	"ActQABot/conf"
+	"ActQABot/internal/etcd_utils"
 	"context"
 	"encoding/json"
 	"errors"
@@ -63,7 +63,10 @@ func (g *GithubIssueMeta) Store(ctx context.Context, jobId string, retries int64
 }
 
 func etcdRetrieveJobMeta(ctx context.Context, jobId string) (*GithubIssueMeta, error) {
-	resp, err := conf.EtcdStoreInstance.Client.Get(ctx, GithubIssueMetaPrefix+jobId, nil)
+	if etcd_utils.EtcdStoreInstance == nil || etcd_utils.EtcdStoreInstance.Client == nil {
+		glog.Fatal("etcd_store instance is nil")
+	}
+	resp, err := etcd_utils.EtcdStoreInstance.Client.Get(ctx, GithubIssueMetaPrefix+jobId)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +82,10 @@ func etcdRetrieveJobMeta(ctx context.Context, jobId string) (*GithubIssueMeta, e
 }
 
 func etcdDeleteJobMeta(ctx context.Context, jobId string, leaseID *clientv3.LeaseID) error {
-	_, err := conf.EtcdStoreInstance.Client.Delete(ctx, GithubIssueMetaPrefix+jobId, nil)
+	if etcd_utils.EtcdStoreInstance == nil {
+		panic("etcd_store instance is nil")
+	}
+	_, err := etcd_utils.EtcdStoreInstance.Client.Delete(ctx, GithubIssueMetaPrefix+jobId, nil)
 	if err != nil {
 		return err
 	}

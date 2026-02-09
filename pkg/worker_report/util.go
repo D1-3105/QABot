@@ -1,7 +1,7 @@
 package worker_report
 
 import (
-	"ActQABot/conf"
+	"ActQABot/internal/etcd_utils"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,23 +16,33 @@ var GithubJobMetaLeaseCreateFunc = leaseCreate
 var GithubJobMetaLeaseRevokeFunc = leaseRevoke
 var StoreGithubJobMetaFunc = storeGithubJobMeta
 var RetrieveGithubJobMetaFunc = etcdRetrieveJobMeta
-var DeleteGithubJobMetaFunc = etcdDeleteJobMeta
+
+// var DeleteGithubJobMetaFunc = etcdDeleteJobMeta
 
 // Job report
 
 var JobReportInitWatchFunc = initWatch
+var JobReportFetchFunc = etcdFetchJobReports
 var JobReportSendEventFunc = putEtcdReport
 var JobMakeAckFunc = makeAckFn
 var JobMakeNackFunc = makeNackFunc
 
+const maxNacks = 10
+
 // Realization
 
 func leaseRevoke(ctx context.Context, leaseID clientv3.LeaseID) {
-	_, _ = conf.EtcdStoreInstance.Client.Lease.Revoke(ctx, leaseID)
+	if etcd_utils.EtcdStoreInstance == nil || etcd_utils.EtcdStoreInstance.Client == nil {
+		glog.Fatal("etcd_store instance is nil")
+	}
+	_, _ = etcd_utils.EtcdStoreInstance.Client.Lease.Revoke(ctx, leaseID)
 }
 
 func leaseCreate(ctx context.Context) (*clientv3.LeaseID, error) {
-	resp, err := conf.EtcdStoreInstance.Client.Lease.Grant(ctx, int64((10 * time.Hour).Seconds()))
+	if etcd_utils.EtcdStoreInstance == nil || etcd_utils.EtcdStoreInstance.Client == nil {
+		glog.Fatal("etcd_store instance is nil")
+	}
+	resp, err := etcd_utils.EtcdStoreInstance.Client.Lease.Grant(ctx, int64((10 * time.Hour).Seconds()))
 	if err != nil {
 		return nil, err
 	}
@@ -40,18 +50,32 @@ func leaseCreate(ctx context.Context) (*clientv3.LeaseID, error) {
 }
 
 func storeGithubJobMeta(ctx context.Context, jobId string, data []byte, leaseID clientv3.LeaseID) (interface{}, error) {
-	return conf.EtcdStoreInstance.Client.Put(
+	if etcd_utils.EtcdStoreInstance == nil {
+		glog.Fatal("etcd_store instance is nil")
+	}
+	return etcd_utils.EtcdStoreInstance.Client.Put(
 		ctx, GithubIssueMetaPrefix+jobId, string(data), clientv3.WithLease(leaseID),
 	)
 }
 
-func initWatch(ctx context.Context) WatchWorkerReport {
-	rawWatch := conf.EtcdStoreInstance.Client.Watch(ctx, string(JobReportChannel), clientv3.WithPrefix())
+func initWatch(ctx context.Context, revision int64) WatchWorkerReport {
+	if etcd_utils.EtcdStoreInstance == nil || etcd_utils.EtcdStoreInstance.Client == nil {
+		glog.Fatal("etcd_store instance is nil")
+	}
+	rawWatch := etcd_utils.EtcdStoreInstance.Client.Watch(
+		ctx,
+		string(JobReportChannel),
+		clientv3.WithPrefix(),
+		clientv3.WithRev(revision),
+	)
 	return NewEtcdWatchWorkerReport(rawWatch)
 }
 
 func putEtcdReport(ctx context.Context, key string, value string) error {
-	_, err := conf.EtcdStoreInstance.Client.Put(
+	if etcd_utils.EtcdStoreInstance == nil || etcd_utils.EtcdStoreInstance.Client == nil {
+		glog.Fatal("etcd_store instance is nil")
+	}
+	_, err := etcd_utils.EtcdStoreInstance.Client.Put(
 		ctx,
 		key,
 		value,
@@ -63,7 +87,10 @@ func makeAckFn(
 	key string,
 	modRev int64,
 ) func(ctx context.Context) error {
-	cli := conf.EtcdStoreInstance.Client
+	if etcd_utils.EtcdStoreInstance == nil || etcd_utils.EtcdStoreInstance.Client == nil {
+		glog.Fatal("etcd_store instance is nil")
+	}
+	cli := etcd_utils.EtcdStoreInstance.Client
 	return func(ctx context.Context) error {
 		txn := cli.Txn(ctx).
 			If(clientv3.Compare(clientv3.ModRevision(key), "=", modRev)).
@@ -84,37 +111,35 @@ func makeNackFunc(
 	key string,
 	report *JobReport,
 	delay time.Duration,
-	maxRetries int,
 ) func(ctx context.Context) error {
-	retryCount := 0
-	cli := conf.EtcdStoreInstance.Client
+	if etcd_utils.EtcdStoreInstance == nil || etcd_utils.EtcdStoreInstance.Client == nil {
+		glog.Fatal("etcd_store instance is nil")
+	}
+	cli := etcd_utils.EtcdStoreInstance.Client
 	return func(ctx context.Context) error {
-		if retryCount >= maxRetries {
-			glog.Errorf(
-				"job %s exceeded max retries (%d), dropping",
-				report.JobId,
-				maxRetries,
-			)
-			return nil
-		}
-
-		retryCount++
-
-		data, err := json.Marshal(report)
-		if err != nil {
+		if report.Retried != nil && *report.Retried > maxNacks {
+			glog.Errorf("job %s was rejected too many times, dropping", report.JobId)
+			_, err := etcd_utils.EtcdStoreInstance.Client.Delete(ctx, key, clientv3.WithPrevKV())
 			return err
+		} else if report.Retried == nil {
+			report.Retried = new(int32)
+			*report.Retried = 0
 		}
-
-		// rewrite with updated retry count → new ModRevision
-		_, err = cli.Put(ctx, key, string(data))
 		// backoff
 		if delay > 0 {
 			select {
-			case <-time.After(delay):
+			case <-time.After(time.Second * delay):
 			case <-ctx.Done():
 				return ctx.Err()
 			}
 		}
+		*report.Retried++
+		data, err := json.Marshal(report)
+		if err != nil {
+			return err
+		}
+		// rewrite with updated retry count → new ModRevision
+		_, err = cli.Put(ctx, key, string(data))
 		return err
 	}
 }
