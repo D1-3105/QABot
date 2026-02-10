@@ -3,9 +3,9 @@ package templates
 import (
 	"bytes"
 	"github.com/golang/glog"
-	"html/template"
 	"path/filepath"
 	"strings"
+	"text/template"
 )
 
 func tmpl(pth string) (func(data any) (string, error), error) {
