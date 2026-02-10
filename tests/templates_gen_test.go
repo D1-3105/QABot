@@ -86,7 +86,7 @@ Detected Docker Environment:
 	if !strings.Contains(out, "@bot") {
 		t.Errorf("output does not contain Initial")
 	}
-	if !strings.Contains(out, "BeepBoop: new job started") {
+	if !strings.Contains(out, "https://my-uri/job/logs?host=myvm&job_id=25a33a0b-02c9-425f-a135-7a10216a861d") {
 		t.Errorf("output does not contain Answer")
 	}
 	if !strings.Contains(out, "Orange") {
