@@ -49,7 +49,11 @@ func postIssueComment(botComment *BotResponse, token string) error {
 	}(resp.Body)
 
 	if resp.StatusCode != 201 {
-		glog.Errorf("Post comment failed with status code %d", resp.StatusCode)
+		bodyBytes, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			glog.Errorf("Failed to read response body: %v, while status %d", readErr, resp.StatusCode)
+		}
+		glog.Errorf("Post comment failed with status code %d, body: %s", resp.StatusCode, string(bodyBytes))
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 	return nil
