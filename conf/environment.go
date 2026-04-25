@@ -14,12 +14,13 @@ var Hosts *HostsEnvironment
 //
 
 type Host struct {
-	Address        string   `yaml:"address"`
-	MaxConcurrency int      `yaml:"max_concurrent_jobs"`
-	TlsCert        *string  `yaml:"tls_cert"`
-	ClientCert     *string  `yaml:"client_cert"`
-	ClientKey      *string  `yaml:"client_key"`
-	CustomFlags    []string `yaml:"custom_flags"`
+	Address              string   `yaml:"address"`
+	MaxConcurrency       int      `yaml:"max_concurrent_jobs"`
+	TlsCert              *string  `yaml:"tls_cert"`
+	ClientCert           *string  `yaml:"client_cert"`
+	ClientKey            *string  `yaml:"client_key"`
+	InsecureSkipVerify   *bool    `yaml:"insecure_skip_verify"`
+	CustomFlags          []string `yaml:"custom_flags"`
 }
 
 type HostsEnvironment struct {

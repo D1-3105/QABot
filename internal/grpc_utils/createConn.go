@@ -55,6 +55,10 @@ func dialGRPC(host conf.Host) (grpc.ClientConnInterface, error) {
 			tlsCfg.Certificates = []tls.Certificate{cert}
 		}
 
+		if host.InsecureSkipVerify != nil && *host.InsecureSkipVerify {
+			tlsCfg.InsecureSkipVerify = true
+		}
+
 		creds = credentials.NewTLS(tlsCfg)
 	} else {
 		creds = insecure.NewCredentials()
