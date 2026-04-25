@@ -2,3 +2,10 @@ hosts:
   my-vm:
     address: xxx:50051
     max_concurrent_jobs: 1
+
+  mtls-host:
+    address: secure-server:50051
+    max_concurrent_jobs: 1
+    tls_cert: /path/to/ca.pem
+    client_cert: /path/to/client.pem
+    client_key: /path/to/client.key
